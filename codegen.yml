@@ -1,0 +1,9 @@
+# codegen.yml
+schema: "src/api/graph.graphqls" # Replace with your actual endpoint or local schema file path
+documents: "src/api/*.tsx" # Glob pattern to find all GraphQL queries, mutations, and subscriptions in your source files
+generates:
+  src/api/graphql.ts: # The file where the types and hooks will be written
+    plugins:
+      - "typescript"
+      - "typescript-operations"
+      - "typescript-react-apollo"

@@ -5,6 +5,7 @@ export interface Node {
   data: {
     id: string;
     label: string;
+    type: string;
   };
 }
 
@@ -32,6 +33,28 @@ const graphSlice = createSlice({
   initialState,
   reducers: {
     setGraph: (state, action: PayloadAction<{ nodes: Node[]; edges: Edge[] }>) => {
+      const parentType = 'parent'; // or any dynamic logic for determining parent type
+
+      // Check if the parent node already exists
+      const parentNodeExists = state.elements.some(
+        (el) => 'type' in el.data && el.data.type === parentType
+      );
+
+      // If the parent node doesn't exist, create it
+      if (!parentNodeExists) {
+        const parentNode: Node = {
+          data: {
+            id: parentType,
+            label: parentType, // Parent node label can be dynamic
+            type: parentType,
+          },
+        };
+
+        // Add the parent node to the nodes list
+        action.payload.nodes.unshift(parentNode); // Add it to the beginning of the node list
+      }
+
+      // Create the new elements by combining the nodes and edges
       state.elements = [
         ...action.payload.nodes,
         ...action.payload.edges,

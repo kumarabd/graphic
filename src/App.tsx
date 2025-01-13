@@ -23,20 +23,42 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 }
 
 function getDefaultStylesheet() {
-  return [{ 
-    selector: "node",
-    style: { 
-      label: "data(label)",
+  return [
+    { 
+      selector: "node",
+      style: { 
+        label: "data(label)",
+      },
+      css: {
+        'shape': 'rectangle',
+        'content': 'data(id)',
+        'text-valign': 'center',
+        'text-halign': 'center'
+      }
+    }, 
+    {
+      selector: 'edge',
+      style: { 
+        label: "data(label)",
+        width: 5,
+        targetArrowShape: 'triangle',
+        curveStyle: 'bezier'
+      },
+      css: {
+        'curve-style': 'bezier',
+        'target-arrow-shape': 'triangle'
+      }
     },
-  }, {
-    selector: 'edge',
-    style: { 
-      label: "data(label)",
-      width: 5,
-      targetArrowShape: 'triangle',
-      curveStyle: 'bezier'
+    {
+      selector: "node[parent]",
+      style: { 
+        'background-color': '#90caf9', // Parent node background color
+        'border-color': '#1e88e5', // Parent node border color
+        'border-width': '2px',
+        'shape': 'round-rectangle',
+      }
     },
-  }];
+  ];
 }
 
 export default function App() {
@@ -85,9 +107,10 @@ export default function App() {
                 <CytoscapeComponent
                   elements={elements} // Use the elements from the Redux store directly
                   style={{
-                    width: "800px",
-                    height: "500px",
+                    width: "2000px",
+                    height: "1000px",
                     border: "1px solid black",
+                    margin: "10%"
                   }}
                   layout={layout}
                   stylesheet={stylesheet}

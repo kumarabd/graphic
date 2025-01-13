@@ -33,21 +33,20 @@ export const fetchGraphDataThunk = () => async (dispatch: any) => {
       }),
     ]);
 
-    const nodes: Node[] = nodesResponse.data.listNodes.map((edge: { ID: string; Label: string; Type: string }) => ({
+    const nodes: Node[] = nodesResponse.data.listNodes.map((node: { ID: string; Label: string; Type: string }) => ({
       data: {
-        id: edge.ID,
-        label: edge.Label,
-        type: edge.Type,
+        id: node.ID,
+        label: node.Label,
+        type: node.Type,
       }
     }));
 
-    const edges: Edge[] = edgesResponse.data.listEdges.map((edge: { ID: string; Label: string; From: string; To: string; Type: string }) => ({
+    const edges: Edge[] = edgesResponse.data.listEdges.map((edge: { ID: string; From: string; To: string; Type: string }) => ({
       data: {
         id: edge.ID,
         source: edge.From,
         target: edge.To,
-        label: edge.Label,
-        type: edge.Type,
+        label: edge.Type,
       }
     }));
 

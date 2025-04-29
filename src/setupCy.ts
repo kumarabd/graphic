@@ -7,9 +7,16 @@ import dagre from "cytoscape-dagre";
 
 // Setup function to register Cytoscape extensions
 export default function setupCy() {
-  cytoscape.use(klay);
-  cytoscape.use(fcose);
-  cytoscape.use(cola);
-  cytoscape.use(elk);
-  cytoscape.use(dagre);
+  try {
+    if (!cytoscape.prototype.hasInitialised) {
+      cytoscape.use(klay);
+      cytoscape.use(fcose);
+      cytoscape.use(cola);
+      cytoscape.use(elk);
+      cytoscape.use(dagre);
+      cytoscape.prototype.hasInitialised = true;
+    }
+  } catch (error) {
+    console.error("Error initializing Cytoscape extensions:", error);
+  }
 }

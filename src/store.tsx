@@ -1,30 +1,50 @@
 import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Define types for Cytoscape elements
+export interface NodeData {
+  id: string;
+  label: string;
+  type: string;
+  parent?: string;
+  entity_type?: string;
+}
+
+export interface EdgeData {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
 export interface Node {
-  data: {
-    id: string;
-    label: string;
-    type: string;
-  };
+  data: NodeData;
 }
 
 export interface Edge {
-  data: {
-    id: string;
-    source: string;
-    target: string;
-    label: string;
-  };
+  data: EdgeData;
+}
+
+export interface Filters {
+  showSubjects: boolean;
+  showResources: boolean;
+  showSubjectAttributes: boolean;
+  showResourceAttributes: boolean;
 }
 
 interface GraphState {
   elements: (Node | Edge)[];
+  filters: Filters;
 }
 
 // Initial state for the graph
 const initialState: GraphState = {
   elements: [],
+  filters: {
+    showSubjects: true,
+    showResources: true,
+    showSubjectAttributes: true,
+    showResourceAttributes: true,
+  }
 };
 
 // Create slice for graph data
@@ -33,37 +53,19 @@ const graphSlice = createSlice({
   initialState,
   reducers: {
     setGraph: (state, action: PayloadAction<{ nodes: Node[]; edges: Edge[] }>) => {
-      const parentType = 'parent'; // or any dynamic logic for determining parent type
-
-      // Check if the parent node already exists
-      const parentNodeExists = state.elements.some(
-        (el) => 'type' in el.data && el.data.type === parentType
-      );
-
-      // If the parent node doesn't exist, create it
-      if (!parentNodeExists) {
-        const parentNode: Node = {
-          data: {
-            id: parentType,
-            label: parentType, // Parent node label can be dynamic
-            type: parentType,
-          },
-        };
-
-        // Add the parent node to the nodes list
-        action.payload.nodes.unshift(parentNode); // Add it to the beginning of the node list
-      }
-
       // Create the new elements by combining the nodes and edges
       state.elements = [
         ...action.payload.nodes,
         ...action.payload.edges,
       ];
     },
+    setFilters: (state, action: PayloadAction<Filters>) => {
+      state.filters = action.payload;
+    },
   },
 });
 
-export const { setGraph } = graphSlice.actions;
+export const { setGraph, setFilters } = graphSlice.actions;
 
 // Create and configure the Redux store
 const store = configureStore({

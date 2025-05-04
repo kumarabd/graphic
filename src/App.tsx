@@ -179,19 +179,19 @@ function getDefaultStylesheet(isDarkMode: boolean) {
     text: isDarkMode ? '#ffffff' : '#000000',
     subject: {
       bg: isDarkMode ? '#ff6b6b' : '#ff4757',
-      text: '#ffffff'
+      text: isDarkMode ? '#ffffff' : '#000000'
     },
     resource: {
       bg: isDarkMode ? '#4ecdc4' : '#00b894',
-      text: '#ffffff'
+      text: isDarkMode ? '#ffffff' : '#000000'
     },
     subject_attribute: {
       bg: isDarkMode ? '#ffd93d' : '#ffa502',
-      text: isDarkMode ? '#000000' : '#000000'
+      text: isDarkMode ? '#ffffff' : '#000000'
     },
     resource_attribute: {
       bg: isDarkMode ? '#6c5ce7' : '#5f27cd',
-      text: '#ffffff'
+      text: isDarkMode ? '#ffffff' : '#000000'
     },
     parent: {
       bg: isDarkMode ? '#2d2d2d' : '#f5f5f5',

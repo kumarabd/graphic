@@ -14,6 +14,8 @@ export interface EdgeData {
   source: string;
   target: string;
   label: string;
+  type?: string;
+  verbs?: string;
 }
 
 export interface Node {

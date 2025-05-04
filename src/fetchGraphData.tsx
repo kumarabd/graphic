@@ -1,5 +1,6 @@
 // fetchGraphData.tsx
 import { ApolloClient, InMemoryCache } from "@apollo/client";
+import { useDispatch } from "react-redux";
 import { setGraph } from "./store"; // Action creator for setting graph data
 import { GET_GRAPH } from "./api/queries";
 import { Node, Edge } from "./store";
@@ -28,58 +29,44 @@ export const fetchGraphDataThunk = () => async (dispatch: any) => {
 
     // Process subjects
     graphResponse.data.subjects.forEach((subject: any) => {
-      uniqueEntities.add(subject.entity_type);
+      uniqueEntities.add(subject.type);
       const nodeData = {
-        id: subject.id,
+        id: subject.id.toString(),
         label: subject.name,
-        type: subject.entity_type,
-        parent: subject.entity_type,
-        entity_type: subject.entity_type,
+        type: subject.type,
+        parent: subject.type,
+        entity_type: subject.type,
       };
       nodes.push({ data: nodeData });
-      nodeIds.add(subject.id);
+      nodeIds.add(subject.id.toString());
     });
 
-    // Process subject attributes
-    graphResponse.data.subject_attributes.forEach((attr: any) => {
-      uniqueEntities.add(attr.entity_type);
+    // Process attributes
+    graphResponse.data.attributes.forEach((attr: any) => {
+      uniqueEntities.add(attr.type);
       const nodeData = {
-        id: attr.id,
+        id: attr.id.toString(),
         label: attr.name,
-        type: attr.entity_type,
-        parent: attr.entity_type,
-        entity_type: attr.entity_type,
+        type: attr.type,
+        parent: attr.type,
+        entity_type: attr.type,
       };
       nodes.push({ data: nodeData });
-      nodeIds.add(attr.id);
-    });
-
-    // Process resource attributes
-    graphResponse.data.resource_attributes.forEach((attr: any) => {
-      uniqueEntities.add(attr.entity_type);
-      const nodeData = {
-        id: attr.id,
-        label: attr.name,
-        type: attr.entity_type,
-        parent: attr.entity_type,
-        entity_type: attr.entity_type,
-      };
-      nodes.push({ data: nodeData });
-      nodeIds.add(attr.id);
+      nodeIds.add(attr.id.toString());
     });
 
     // Process resources
     graphResponse.data.resources.forEach((resource: any) => {
-      uniqueEntities.add(resource.entity_type);
+      uniqueEntities.add(resource.type);
       const nodeData = {
-        id: resource.id,
+        id: resource.id.toString(),
         label: resource.name,
-        type: resource.entity_type,
-        parent: resource.entity_type,
-        entity_type: resource.entity_type,
+        type: resource.type,
+        parent: resource.type,
+        entity_type: resource.type,
       };
       nodes.push({ data: nodeData });
-      nodeIds.add(resource.id);
+      nodeIds.add(resource.id.toString());
     });
 
     // Add parent nodes for entity types
@@ -96,36 +83,69 @@ export const fetchGraphDataThunk = () => async (dispatch: any) => {
     // Debug: Log all node IDs
     console.log('All Node IDs:', Array.from(nodeIds));
 
-    // // Process associations only if both source and target nodes exist
-    // graphResponse.data.associations.forEach((assoc: any) => {
-    //   // Debug: Log each association attempt
-    //   console.log('Processing association:', {
-    //     id: assoc.id,
-    //     from: assoc.from_id,
-    //     to: assoc.to_id,
-    //     fromExists: nodeIds.has(assoc.from_id),
-    //     toExists: nodeIds.has(assoc.to_id)
-    //   });
+    // Process assignments (these are the main edges)
+    graphResponse.data.assignments.forEach((assignment: any) => {
+      // Debug: Log each assignment attempt
+      console.log('Processing assignment:', {
+        id: assignment.id,
+        from: assignment.from_id,
+        to: assignment.to_id,
+        fromExists: nodeIds.has(assignment.from_id.toString()),
+        toExists: nodeIds.has(assignment.to_id.toString())
+      });
 
-    //   if (nodeIds.has(assoc.from_id) && nodeIds.has(assoc.to_id)) {
-    //     edges.push({
-    //       data: {
-    //         id: assoc.id,
-    //         source: assoc.from_id,
-    //         target: assoc.to_id,
-    //         label: "association",
-    //       }
-    //     });
-    //   } else {
-    //     // console.warn(`Skipping edge ${assoc.id} - missing nodes:`, {
-    //     //   from: assoc.from_id,
-    //     //   to: assoc.to_id,
-    //     //   fromExists: nodeIds.has(assoc.from_id),
-    //     //   toExists: nodeIds.has(assoc.to_id)
-    //     // });
-    //     console.warn(assoc.to_id)
-    //   }
-    // });
+      if (nodeIds.has(assignment.from_id.toString()) && nodeIds.has(assignment.to_id.toString())) {
+        edges.push({
+          data: {
+            id: assignment.id.toString(),
+            source: assignment.from_id.toString(),
+            target: assignment.to_id.toString(),
+            label: "assignment",
+            type: assignment.type
+          }
+        });
+      } else {
+        console.warn(`Skipping assignment ${assignment.id} - missing nodes:`, {
+          from: assignment.from_id,
+          to: assignment.to_id,
+          fromExists: nodeIds.has(assignment.from_id.toString()),
+          toExists: nodeIds.has(assignment.to_id.toString())
+        });
+      }
+    });
+
+    // Process associations (these are special edges with verbs)
+    graphResponse.data.associations.forEach((assoc: any) => {
+      // Debug: Log each association attempt
+      console.log('Processing association:', {
+        id: assoc.id,
+        from: assoc.from_id,
+        to: assoc.to_id,
+        verbs: assoc.verbs,
+        fromExists: nodeIds.has(assoc.from_id.toString()),
+        toExists: nodeIds.has(assoc.to_id.toString())
+      });
+
+      if (nodeIds.has(assoc.from_id.toString()) && nodeIds.has(assoc.to_id.toString())) {
+        edges.push({
+          data: {
+            id: assoc.id.toString(),
+            source: assoc.from_id.toString(),
+            target: assoc.to_id.toString(),
+            label: "association",
+            type: assoc.type,
+            verbs: assoc.verbs?.map((v: any) => v.action).join(", ")
+          }
+        });
+      } else {
+        console.warn(`Skipping association ${assoc.id} - missing nodes:`, {
+          from: assoc.from_id,
+          to: assoc.to_id,
+          fromExists: nodeIds.has(assoc.from_id.toString()),
+          toExists: nodeIds.has(assoc.to_id.toString())
+        });
+      }
+    });
 
     // Debug: Log final graph data
     console.log('Final nodes count:', nodes.length);

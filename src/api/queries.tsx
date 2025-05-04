@@ -7,33 +7,33 @@ export const GET_GRAPH = gql`
     subjects {
       id
       name
-      entity_type
+      type
     }
-    subject_attributes {
-        id
-        name
-        entity_type
-        assignment {
-          id
-        }
-    }
-    resource_attributes {
-        id
-        name
-        entity_type
-        assignment {
-          id
-        }
+    attributes {
+      id
+      name
+      type
     }
     resources {
       id
       name
-      entity_type
+      type
+    }
+    assignments {
+      id
+      from_id
+      to_id
+      type
     }
     associations {
       id
       from_id
       to_id
+      type
+      verbs {
+        id
+        action
+      }
     }
   }
 `;

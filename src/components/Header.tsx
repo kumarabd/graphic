@@ -1,81 +1,72 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   AppBar,
-  Box,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Toolbar,
   Typography,
+  IconButton,
+  useTheme,
+  Tooltip,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 interface HeaderProps {
   title?: string;
+  onToggleTheme?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title = 'Graph' }) => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const toggleDrawer = (open: boolean) => (event: React.KeyboardEvent | React.MouseEvent) => {
-    if (
-      event.type === 'keydown' &&
-      ((event as React.KeyboardEvent).key === 'Tab' ||
-        (event as React.KeyboardEvent).key === 'Shift')
-    ) {
-      return;
-    }
-    setDrawerOpen(open);
-  };
-
-  const drawerContent = (
-    <Box
-      sx={{ width: 250 }}
-      role="presentation"
-      onClick={toggleDrawer(false)}
-      onKeyDown={toggleDrawer(false)}
-    >
-      <List>
-        <ListItem>
-          <ListItemIcon>
-            <AccountTreeIcon />
-          </ListItemIcon>
-          <ListItemText primary="Graph" />
-        </ListItem>
-      </List>
-    </Box>
-  );
+export const Header: React.FC<HeaderProps> = ({ 
+  title = 'Graph Visualization', 
+  onToggleTheme 
+}) => {
+  const theme = useTheme();
 
   return (
-    <>
-      <AppBar position="static" sx={{ mb: 2 }}>
-        <Toolbar>
+    <AppBar 
+      position="static" 
+      elevation={0}
+      sx={{ 
+        bgcolor: 'background.paper',
+        borderBottom: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Toolbar variant="dense">
+        <Typography 
+          variant="h6" 
+          component="div" 
+          sx={{ 
+            flexGrow: 1,
+            color: 'text.primary',
+            fontWeight: 500
+          }}
+        >
+          {title}
+        </Typography>
+        {onToggleTheme && (
+          <Tooltip title="Toggle theme">
+            <IconButton onClick={onToggleTheme} sx={{ ml: 1 }}>
+              {theme.palette.mode === 'dark' ? (
+                <Brightness7Icon />
+              ) : (
+                <Brightness4Icon />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title="View on GitHub">
           <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 2 }}
-            onClick={toggleDrawer(true)}
+            component="a"
+            href="https://github.com/kumarabd/kube-auth-engine"
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ ml: 1 }}
           >
-            <MenuIcon />
+            <GitHubIcon />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {title}
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={toggleDrawer(false)}
-      >
-        {drawerContent}
-      </Drawer>
-    </>
+        </Tooltip>
+      </Toolbar>
+    </AppBar>
   );
 };

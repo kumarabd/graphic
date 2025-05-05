@@ -1,4 +1,4 @@
-import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 
 // Define types for Cytoscape elements
 export interface NodeData {
@@ -6,7 +6,6 @@ export interface NodeData {
   label: string;
   type: string;
   parent?: string;
-  entity_type?: string;
 }
 
 export interface EdgeData {
@@ -14,39 +13,45 @@ export interface EdgeData {
   source: string;
   target: string;
   label: string;
-  type?: string;
-  verbs?: string;
 }
 
 export interface Node {
+  group: 'nodes';
   data: NodeData;
 }
 
 export interface Edge {
+  group: 'edges';
   data: EdgeData;
 }
 
-export interface Filters {
-  showSubjects: boolean;
-  showResources: boolean;
-  showSubjectAttributes: boolean;
-  showResourceAttributes: boolean;
+export interface NodeSelections {
+  subjects: string[];
+  resources: string[];
+  resourceAttributes: string[];
+  subjectAttributes: string[];
 }
 
 interface GraphState {
-  elements: (Node | Edge)[];
-  filters: Filters;
+  nodes: Node[];
+  edges: Edge[];
+  selections: NodeSelections;
+  loading: boolean;
+  error: string | null;
 }
 
 // Initial state for the graph
 const initialState: GraphState = {
-  elements: [],
-  filters: {
-    showSubjects: true,
-    showResources: true,
-    showSubjectAttributes: true,
-    showResourceAttributes: true,
-  }
+  nodes: [],
+  edges: [],
+  selections: {
+    subjects: [],
+    resources: [],
+    resourceAttributes: [],
+    subjectAttributes: []
+  },
+  loading: false,
+  error: null
 };
 
 // Create slice for graph data
@@ -55,28 +60,69 @@ const graphSlice = createSlice({
   initialState,
   reducers: {
     setGraph: (state, action: PayloadAction<{ nodes: Node[]; edges: Edge[] }>) => {
-      // Create the new elements by combining the nodes and edges
-      state.elements = [
-        ...action.payload.nodes,
-        ...action.payload.edges,
-      ];
+      state.nodes = action.payload.nodes;
+      state.edges = action.payload.edges;
     },
-    setFilters: (state, action: PayloadAction<Filters>) => {
-      state.filters = action.payload;
+    setSelections: (state, action: PayloadAction<NodeSelections>) => {
+      state.selections = action.payload;
     },
-  },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+    }
+  }
 });
 
-export const { setGraph, setFilters } = graphSlice.actions;
+export const { setGraph, setSelections, setLoading, setError } = graphSlice.actions;
 
 // Create and configure the Redux store
 const store = configureStore({
   reducer: {
     graph: graphSlice.reducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false, // Disable serializable check for Cytoscape objects
+    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
+
+// Memoized selectors
+const selectNodes = (state: RootState) => state.graph.nodes;
+const selectEdges = (state: RootState) => state.graph.edges;
+const selectSelections = (state: RootState) => state.graph.selections;
+
+// Selector to get filtered elements
+export const selectFilteredElements = createSelector(
+  [selectNodes, selectEdges, selectSelections],
+  (nodes, edges, selections) => {
+    let filteredNodes = nodes.filter(node => {
+      const nodeType = node.data.type;
+      switch (nodeType) {
+        case 'subject':
+          return selections.subjects.length == 0 || selections.subjects.includes(node.data.id);
+        case 'resource':
+          return selections.resources.length == 0 || selections.resources.includes(node.data.id);
+        case 'resource_attribute':
+          return selections.resourceAttributes.length == 0 || selections.resourceAttributes.includes(node.data.id);
+        case 'subject_attribute':
+          return selections.subjectAttributes.length == 0 || selections.subjectAttributes.includes(node.data.id);
+        default:
+          return true;
+      }
+    });
+
+    let filteredEdges = edges.filter(edge => 
+      filteredNodes.find(node => node.data.id === edge.data.source) && 
+      filteredNodes.find(node => node.data.id === edge.data.target)
+    );
+
+    return [...filteredNodes, ...filteredEdges];
+  }
+);
 
 export default store;

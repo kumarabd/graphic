@@ -5,16 +5,19 @@ import cola from "cytoscape-cola";
 import elk from "cytoscape-elk";
 import dagre from "cytoscape-dagre";
 
+let extensionsRegistered = false;
+
 // Setup function to register Cytoscape extensions
 export default function setupCy() {
   try {
-    if (!cytoscape.prototype.hasInitialised) {
+    // Register extensions if they haven't been registered yet
+    if (!extensionsRegistered) {
       cytoscape.use(klay);
       cytoscape.use(fcose);
       cytoscape.use(cola);
       cytoscape.use(elk);
       cytoscape.use(dagre);
-      cytoscape.prototype.hasInitialised = true;
+      extensionsRegistered = true;
     }
   } catch (error) {
     console.error("Error initializing Cytoscape extensions:", error);

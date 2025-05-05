@@ -1,100 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { ThemeProvider, createTheme, useMediaQuery } from '@mui/material';
-import CssBaseline from '@mui/material/CssBaseline';
-import Box from '@mui/material/Box';
-import { Header } from './components/Header';
-import { ControlPanel } from './components/ControlPanel';
-import { GraphView } from './components/GraphView';
-import { RootState, AppDispatch } from './store';
 import { Stylesheet } from 'cytoscape';
-import { fetchGraphDataThunk } from './fetchGraphData';
-import { LayoutType } from './hooks/useLayoutSelection';
 
-export default function App() {
-  const dispatch = useDispatch<AppDispatch>();
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
-  const [currentLayout, setCurrentLayout] = useState<LayoutType>('elk_layered');
-  const { loading } = useSelector((state: RootState) => state.graph);
+type StyleValue = string | number;
 
-  // Fetch data on initial render
-  useEffect(() => {
-    dispatch(fetchGraphDataThunk());
-  }, [dispatch]);
-
-  const toggleTheme = () => {
-    setMode(prevMode => prevMode === 'light' ? 'dark' : 'light');
-  };
-
-  // Create theme with custom scrollbar styles
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          primary: {
-            main: mode === 'dark' ? '#90caf9' : '#1976d2',
-          },
-          background: {
-            default: mode === 'dark' ? '#121212' : '#f5f5f5',
-            paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
-          },
-        },
-        components: {
-          MuiCssBaseline: {
-            styleOverrides: {
-              '*::-webkit-scrollbar': {
-                width: '8px',
-                height: '8px',
-              },
-              '*::-webkit-scrollbar-thumb': {
-                borderRadius: 8,
-                backgroundColor: mode === 'dark' ? '#6b6b6b' : '#959595',
-                minHeight: 24,
-              },
-              '*::-webkit-scrollbar-track': {
-                backgroundColor: mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
-              },
-            },
-          },
-        },
-      }),
-    [mode],
-  );
-
-  // Get default stylesheet based on theme
-  const stylesheet = useMemo(() => getDefaultStylesheet(mode === 'dark'), [mode]);
-
-  const handleLayoutChange = (layout: LayoutType) => {
-    setCurrentLayout(layout);
-  };
-
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        minHeight: '100vh',
-        bgcolor: 'background.default',
-      }}>
-        <Header onToggleTheme={toggleTheme} />
-        <Box sx={{ 
-          display: 'flex', 
-          flexGrow: 1,
-          gap: 2,
-          p: 2,
-        }}>
-          <ControlPanel onLayoutChange={handleLayoutChange} />
-          <GraphView stylesheet={stylesheet} selectedLayout={currentLayout} />
-        </Box>
-      </Box>
-    </ThemeProvider>
-  );
-}
-
-function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
+export const getDefaultStylesheet = (isDarkMode: boolean): Stylesheet[] => {
   const colors = {
     background: isDarkMode ? '#1e1e1e' : '#ffffff',
     text: isDarkMode ? '#ffffff' : '#000000',
@@ -135,20 +43,19 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
         'label': 'data(label)' as any,
         'text-valign': 'center' as any,
         'text-halign': 'center' as any,
-        'font-size': '11px',
-        'font-weight': '500',
+        'font-size': '11px' as any,
+        'font-weight': '500' as any,
         'font-family': 'system-ui, sans-serif',
-        'width': '35px',
-        'height': '35px',
-        'padding': '5px',
+        'width': '35px' as any,
+        'height': '35px' as any,
         'background-color': colors.background,
         'color': colors.text,
         'text-wrap': 'wrap' as any,
-        'text-max-width': '80px',
-        'border-width': '1px',
+        'text-max-width': '80px' as any,
+        'border-width': '1px' as any,
         'border-color': 'transparent',
         'transition-property': 'background-color, border-color, border-width',
-        'transition-duration': '0.2s',
+        'transition-duration': '200ms' as any,
       }
     },
     {
@@ -156,15 +63,14 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
       style: {
         'background-color': colors.entity.parent.bg,
         'border-color': colors.entity.parent.border,
-        'border-width': '1px',
+        'border-width': '1px' as any,
         'shape': 'roundrectangle' as any,
         'text-valign': 'top' as any,
         'text-halign': 'center' as any,
-        'font-weight': '600',
-        'font-size': '12px',
+        'font-weight': '600' as any,
+        'font-size': '12px' as any,
         'color': colors.entity.parent.text,
-        'padding': '15px',
-        'text-margin-y': '5px',
+        'text-margin-y': '5px' as any,
       }
     },
     {
@@ -202,33 +108,33 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
     {
       selector: 'edge',
       style: {
-        'width': 1.5,
+        'width': '1.5px' as any,
         'line-color': colors.edge.line,
         'target-arrow-color': colors.edge.line,
         'source-arrow-color': colors.edge.line,
         'target-arrow-shape': 'triangle' as any,
         'curve-style': 'bezier' as any,
         'label': 'data(label)' as any,
-        'font-size': '10px',
+        'font-size': '10px' as any,
         'font-family': 'system-ui, sans-serif',
-        'font-weight': '500',
+        'font-weight': '500' as any,
         'text-rotation': 'autorotate' as any,
-        'text-margin-y': -8,
+        'text-margin-y': '-8px' as any,
         'text-background-color': colors.background,
         'text-background-opacity': 0.85,
-        'text-background-padding': '3px',
+        'text-background-padding': '3px' as any,
         'text-background-shape': 'roundrectangle' as any,
         'color': colors.edge.text,
-        'arrow-scale': 1.2,
+        'arrow-scale': '1.2' as any,
         'transition-property': 'line-color, target-arrow-color, source-arrow-color, width',
-        'transition-duration': '0.2s',
+        'transition-duration': '200ms' as any,
       }
     },
     {
       selector: 'edge[type = "assignment"]',
       style: {
         'line-style': 'solid' as any,
-        'width': 2,
+        'width': '2px' as any,
       }
     },
     {
@@ -243,7 +149,7 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
       selector: 'node:hover',
       style: {
         'border-color': colors.edge.highlight,
-        'border-width': '2px',
+        'border-width': '2px' as any,
       }
     },
     {
@@ -252,7 +158,7 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
         'line-color': colors.edge.highlight,
         'target-arrow-color': colors.edge.highlight,
         'source-arrow-color': colors.edge.highlight,
-        'width': 2.5,
+        'width': '2.5px' as any,
         'z-index': 999,
       }
     },
@@ -261,7 +167,7 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
       selector: 'node:selected',
       style: {
         'border-color': colors.edge.highlight,
-        'border-width': '3px',
+        'border-width': '3px' as any,
       }
     },
     {
@@ -270,9 +176,9 @@ function getDefaultStylesheet(isDarkMode: boolean): Stylesheet[] {
         'line-color': colors.edge.highlight,
         'target-arrow-color': colors.edge.highlight,
         'source-arrow-color': colors.edge.highlight,
-        'width': 3,
+        'width': '3px' as any,
         'z-index': 999,
       }
     },
-  ] as Stylesheet[];
-}
+  ];
+};

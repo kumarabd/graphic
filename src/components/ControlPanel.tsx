@@ -1,190 +1,154 @@
 import React from 'react';
-import {
-  Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  Typography,
-  Box,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Button,
-  FormGroup,
-  FormControlLabel,
-  Switch,
-  Divider,
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SyncIcon from '@mui/icons-material/Sync';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState, setFilters } from '../store';
+import { Paper, Box, Typography, Autocomplete, TextField, Chip, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../store';
 import { fetchGraphDataThunk } from '../fetchGraphData';
-import { layouts } from '../layouts';
-import { Stylesheet } from 'cytoscape';
-import { JSONEditor } from '../JSONEditor';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { useLayoutSelection, LayoutType } from '../hooks/useLayoutSelection';
+import SyncIcon from '@mui/icons-material/Sync';
+import { IconButton, Tooltip } from '@mui/material';
 
 interface ControlPanelProps {
-  layout: any;
-  setLayout: (layout: any) => void;
-  stylesheet: Stylesheet[];
-  setStylesheet: (stylesheet: Stylesheet[]) => void;
+  onLayoutChange: (layout: LayoutType) => void;
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({
-  layout,
-  setLayout,
-  stylesheet,
-  setStylesheet,
-}) => {
+export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const filters = useSelector((state: RootState) => state.graph.filters);
-  
-  const handleLayoutChange = (event: SelectChangeEvent<string>) => {
-    setLayout({ ...layouts[event.target.value as keyof typeof layouts] });
+  const { nodesByType, selections, updateSelections } = useNodeSelection();
+  const { selectedLayout, setSelectedLayout, layoutOptions } = useLayoutSelection();
+
+  const handleSync = () => {
+    dispatch(fetchGraphDataThunk());
   };
 
-  const handleFilterChange = (filterKey: keyof typeof filters) => {
-    dispatch(setFilters({
-      ...filters,
-      [filterKey]: !filters[filterKey],
-    }));
+  const handleLayoutChange = (event: any) => {
+    const newLayout = event.target.value as LayoutType;
+    setSelectedLayout(newLayout);
+    onLayoutChange(newLayout);
   };
-
-  const currentLayoutName = Object.entries(layouts).find(
-    ([_, value]) => JSON.stringify(value) === JSON.stringify(layout)
-  )?.[0];
 
   return (
     <Paper 
       elevation={3} 
       sx={{ 
-        p: 1,
-        width: '280px', 
-        maxWidth: '20vw', 
-        height: 'calc(100vh - 80px)', 
+        p: 2,
+        width: '300px',
+        height: 'calc(100vh - 80px)',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: 1,
-        mr: 0.5
+        gap: 2
       }}
     >
-      <Typography variant="h6" sx={{ mb: 0.5 }}>
-        Graph Controls
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">
+          Control Panel
+        </Typography>
+        <Tooltip title="Sync Graph Data">
+          <IconButton onClick={handleSync} size="small">
+            <SyncIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
-      <Button
-        variant="contained"
-        size="small"
-        startIcon={<SyncIcon />}
-        onClick={() => dispatch(fetchGraphDataThunk())}
-        sx={{ mb: 0.5 }}
-      >
-        Sync
-      </Button>
-
-      <Accordion defaultExpanded sx={{ '& .MuiAccordionSummary-root': { minHeight: '40px' } }}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="filter-content"
-          id="filter-header"
-        >
-          <Typography variant="body2">Filters</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.showSubjects}
-                  onChange={() => handleFilterChange('showSubjects')}
-                  size="small"
-                />
-              }
-              label="Show Subjects"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.showResources}
-                  onChange={() => handleFilterChange('showResources')}
-                  size="small"
-                />
-              }
-              label="Show Resources"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.showSubjectAttributes}
-                  onChange={() => handleFilterChange('showSubjectAttributes')}
-                  size="small"
-                />
-              }
-              label="Show Subject Attributes"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.showResourceAttributes}
-                  onChange={() => handleFilterChange('showResourceAttributes')}
-                  size="small"
-                />
-              }
-              label="Show Resource Attributes"
-            />
-          </FormGroup>
-        </AccordionDetails>
-      </Accordion>
-      
-      <FormControl fullWidth size="small" sx={{ mb: 0.5 }}>
+      {/* Layout Selection */}
+      <FormControl fullWidth>
         <InputLabel id="layout-select-label">Layout</InputLabel>
         <Select
           labelId="layout-select-label"
           id="layout-select"
-          value={currentLayoutName || ''}
+          value={selectedLayout}
           label="Layout"
           onChange={handleLayoutChange}
         >
-          {Object.entries(layouts).map(([key]) => (
-            <MenuItem key={key} value={key}>
-              {key}
+          {layoutOptions.map((layout) => (
+            <MenuItem key={layout} value={layout}>
+              {layout.charAt(0).toUpperCase() + layout.slice(1).replace(/_/g, ' ')}
             </MenuItem>
           ))}
         </Select>
       </FormControl>
 
-      <Accordion sx={{ '& .MuiAccordionSummary-root': { minHeight: '40px' } }}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="additional-settings-content"
-          id="additional-settings-header"
-        >
-          <Typography variant="body2">Additional Settings</Typography>
-        </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography variant="subtitle2">
-              Layout Configuration
-            </Typography>
-            <JSONEditor
-              value={layout}
-              onChange={(value) => setLayout(value)}
-            />
+      <Divider sx={{ my: 1 }} />
 
-            <Typography variant="subtitle2" sx={{ mt: 1 }}>
-              Stylesheet
-            </Typography>
-            <JSONEditor
-              value={stylesheet}
-              onChange={(value) => setStylesheet(value)}
-            />
-          </Box>
-        </AccordionDetails>
-      </Accordion>
+      {/* Node Filters */}
+      <Typography variant="subtitle1" gutterBottom>
+        Node Filters
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Subjects Filter */}
+        <Autocomplete
+          multiple
+          id="subjects-select"
+          options={nodesByType.subjects}
+          value={nodesByType.subjects.filter(node => selections.subjects.includes(node.id))}
+          getOptionLabel={(option) => option.label}
+          onChange={(_, newValue) => updateSelections('subjects', newValue.map(v => v.id))}
+          renderInput={(params) => (
+            <TextField {...params} label="Subjects" variant="outlined" />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip label={option.label} {...getTagProps({ index })} />
+            ))
+          }
+        />
+
+        {/* Resources Filter */}
+        <Autocomplete
+          multiple
+          id="resources-select"
+          options={nodesByType.resources}
+          value={nodesByType.resources.filter(node => selections.resources.includes(node.id))}
+          getOptionLabel={(option) => option.label}
+          onChange={(_, newValue) => updateSelections('resources', newValue.map(v => v.id))}
+          renderInput={(params) => (
+            <TextField {...params} label="Resources" variant="outlined" />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip label={option.label} {...getTagProps({ index })} />
+            ))
+          }
+        />
+
+        {/* Resource Attributes Filter */}
+        <Autocomplete
+          multiple
+          id="resource-attributes-select"
+          options={nodesByType.resourceAttributes}
+          value={nodesByType.resourceAttributes.filter(node => selections.resourceAttributes.includes(node.id))}
+          getOptionLabel={(option) => option.label}
+          onChange={(_, newValue) => updateSelections('resourceAttributes', newValue.map(v => v.id))}
+          renderInput={(params) => (
+            <TextField {...params} label="Resource Attributes" variant="outlined" />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip label={option.label} {...getTagProps({ index })} />
+            ))
+          }
+        />
+
+        {/* Subject Attributes Filter */}
+        <Autocomplete
+          multiple
+          id="subject-attributes-select"
+          options={nodesByType.subjectAttributes}
+          value={nodesByType.subjectAttributes.filter(node => selections.subjectAttributes.includes(node.id))}
+          getOptionLabel={(option) => option.label}
+          onChange={(_, newValue) => updateSelections('subjectAttributes', newValue.map(v => v.id))}
+          renderInput={(params) => (
+            <TextField {...params} label="Subject Attributes" variant="outlined" />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip label={option.label} {...getTagProps({ index })} />
+            ))
+          }
+        />
+      </Box>
     </Paper>
   );
 };

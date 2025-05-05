@@ -1,16 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Paper, Typography, Button } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { RootState, Node, Edge, NodeData, EdgeData } from '../store';
+import { RootState, selectFilteredElements, Node, Edge, NodeData, EdgeData } from '../store';
 import CytoscapeComponent from 'react-cytoscapejs';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { Stylesheet } from 'cytoscape';
+import { Stylesheet, ElementDefinition, NodeDataDefinition, EdgeDataDefinition } from 'cytoscape';
 import cytoscape from 'cytoscape';
 import setupCy from '../setupCy';
+import { useLayoutSelection, LayoutType } from '../hooks/useLayoutSelection';
 
 interface GraphViewProps {
-  layout: any;
   stylesheet: Stylesheet[];
+  selectedLayout: LayoutType;
 }
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
@@ -34,76 +35,107 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   );
 }
 
-export const GraphView: React.FC<GraphViewProps> = ({ layout, stylesheet }) => {
-  const allElements = useSelector((state: RootState) => state.graph.elements);
-  const filters = useSelector((state: RootState) => state.graph.filters);
+export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout }) => {
+  const allElements = useSelector(selectFilteredElements);
+  const filters = useSelector((state: RootState) => state.graph.selections);
   const cyRef = useRef<cytoscape.Core | null>(null);
+  const prevElementsRef = useRef<typeof allElements>([]);
+  const { getLayoutConfig } = useLayoutSelection();
 
   // Initialize Cytoscape extensions
   useEffect(() => {
     setupCy();
   }, []);
 
-  // Apply filters to elements
+  // Filter elements based on selections
   const elements = allElements.filter(element => {
     if ('source' in element.data) {
-      // For edges, check if both source and target nodes are visible
-      const sourceNode = allElements.find(e => !('source' in e.data) && e.data.id === (element.data as EdgeData).source) as Node | undefined;
-      const targetNode = allElements.find(e => !('source' in e.data) && e.data.id === (element.data as EdgeData).target) as Node | undefined;
+      // For edges, show only if both source and target nodes are visible
+      const sourceNode = allElements.find(el => !('source' in el.data) && el.data.id === (element.data as EdgeData).source);
+      const targetNode = allElements.find(el => !('source' in el.data) && el.data.id === (element.data as EdgeData).target);
       
       if (!sourceNode || !targetNode) return false;
       
-      const sourceType = (sourceNode.data as NodeData).entity_type;
-      const targetType = (targetNode.data as NodeData).entity_type;
-      
-      const isSourceVisible = (
-        (sourceType === 'subject' && filters.showSubjects) ||
-        (sourceType === 'resource' && filters.showResources) ||
-        (sourceType === 'subject_attribute' && filters.showSubjectAttributes) ||
-        (sourceType === 'resource_attribute' && filters.showResourceAttributes)
-      );
-      
-      const isTargetVisible = (
-        (targetType === 'subject' && filters.showSubjects) ||
-        (targetType === 'resource' && filters.showResources) ||
-        (targetType === 'subject_attribute' && filters.showSubjectAttributes) ||
-        (targetType === 'resource_attribute' && filters.showResourceAttributes)
-      );
-      
+      const sourceType = (sourceNode.data as NodeData).type;
+      const targetType = (targetNode.data as NodeData).type;
+
+      // Check if source node is visible
+      const isSourceVisible = 
+        sourceType === 'parent' ||
+        (sourceType === 'subject' && (filters.subjects.length === 0 || filters.subjects.includes((element.data as EdgeData).source))) ||
+        (sourceType === 'resource' && (filters.resources.length === 0 || filters.resources.includes((element.data as EdgeData).source))) ||
+        (sourceType === 'subject_attribute' && (filters.subjectAttributes.length === 0 || filters.subjectAttributes.includes((element.data as EdgeData).source))) ||
+        (sourceType === 'resource_attribute' && (filters.resourceAttributes.length === 0 || filters.resourceAttributes.includes((element.data as EdgeData).source)));
+
+      // Check if target node is visible
+      const isTargetVisible = 
+        targetType === 'parent' ||
+        (targetType === 'subject' && (filters.subjects.length === 0 || filters.subjects.includes((element.data as EdgeData).target))) ||
+        (targetType === 'resource' && (filters.resources.length === 0 || filters.resources.includes((element.data as EdgeData).target))) ||
+        (targetType === 'subject_attribute' && (filters.subjectAttributes.length === 0 || filters.subjectAttributes.includes((element.data as EdgeData).target))) ||
+        (targetType === 'resource_attribute' && (filters.resourceAttributes.length === 0 || filters.resourceAttributes.includes((element.data as EdgeData).target)));
+
+      // Only show edge if both nodes are visible
       return isSourceVisible && isTargetVisible;
     } else {
       // For nodes
       const nodeData = element.data as NodeData;
-      const entityType = nodeData.entity_type;
-      if (!entityType) return true; // Keep parent nodes
+      const entityType = nodeData.type;
+
+      // Always show parent nodes
+      if (entityType === 'parent') return true;
       
+      // Show all nodes of a type if no selections are made for that type
       return (
-        (entityType === 'subject' && filters.showSubjects) ||
-        (entityType === 'resource' && filters.showResources) ||
-        (entityType === 'subject_attribute' && filters.showSubjectAttributes) ||
-        (entityType === 'resource_attribute' && filters.showResourceAttributes)
+        (entityType === 'subject' && (filters.subjects.length === 0 || filters.subjects.includes(nodeData.id))) ||
+        (entityType === 'resource' && (filters.resources.length === 0 || filters.resources.includes(nodeData.id))) ||
+        (entityType === 'subject_attribute' && (filters.subjectAttributes.length === 0 || filters.subjectAttributes.includes(nodeData.id))) ||
+        (entityType === 'resource_attribute' && (filters.resourceAttributes.length === 0 || filters.resourceAttributes.includes(nodeData.id)))
       );
     }
   });
 
-  useEffect(() => {
-    if (cyRef.current && elements.length > 0) {
-      const cy = cyRef.current;
-      try {
-        cy.layout(layout).run();
-        cy.center();
-        cy.fit();
-        // Set initial zoom level for better readability
-        const centerPos = (cy.center() as unknown) as { x: number; y: number };
-        cy.zoom({
-          level: 1.2, // Slightly zoomed in for better readability
-          position: centerPos
-        });
-      } catch (error) {
-        console.error("Error in Cytoscape layout:", error);
+  // Convert filtered elements to Cytoscape format
+  const cytoscapeElements = useMemo(() => {
+    return elements.map(element => {
+      if ('source' in element.data) {
+        // It's an edge
+        return {
+          group: 'edges' as const,
+          data: element.data as EdgeDataDefinition
+        };
+      } else {
+        // It's a node
+        return {
+          group: 'nodes' as const,
+          data: element.data as NodeDataDefinition
+        };
       }
+    }) as ElementDefinition[];
+  }, [elements]);
+
+  // Handle layout and viewport updates
+  const updateLayout = useCallback(() => {
+    if (!cyRef.current || elements.length === 0) return;
+
+    const cy = cyRef.current;
+    try {
+      // Get the current layout configuration
+      const layoutConfig = getLayoutConfig(selectedLayout);
+      
+      cy.layout(layoutConfig).run();
+      cy.center();
+      cy.fit();
+      prevElementsRef.current = elements;
+    } catch (error) {
+      console.error("Error in Cytoscape layout:", error);
     }
-  }, [elements, layout]);
+  }, [elements, selectedLayout, getLayoutConfig]);
+
+  // Apply layout when elements, filters, or layout changes
+  useEffect(() => {
+    updateLayout();
+  }, [elements, filters, selectedLayout, updateLayout]);
 
   // Handle window resize
   useEffect(() => {
@@ -143,17 +175,17 @@ export const GraphView: React.FC<GraphViewProps> = ({ layout, stylesheet }) => {
     >
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <CytoscapeComponent
-          elements={elements}
+          elements={cytoscapeElements}
           style={{
             width: '100%',
             height: '100%',
           }}
-          layout={layout}
+          layout={getLayoutConfig(selectedLayout)}
           stylesheet={stylesheet}
           cy={(cy) => { cyRef.current = cy; }}
-          wheelSensitivity={0.2} 
-          minZoom={0.3} 
-          maxZoom={3}   
+          wheelSensitivity={0.2}
+          minZoom={0.3}
+          maxZoom={3}
         />
       </ErrorBoundary>
     </Paper>

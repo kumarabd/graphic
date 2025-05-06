@@ -9,7 +9,7 @@ export const GET_GRAPH = gql`
       name
       type
     }
-    relationships(limit: 1000) {
+    relationships(limit: 3000) {
       hash_id
       from_id
       to_id

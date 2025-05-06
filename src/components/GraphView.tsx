@@ -37,7 +37,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout }) => {
   const allElements = useSelector(selectFilteredElements);
-  const filters = useSelector((state: RootState) => state.graph.selections);
+  const filters = useSelector((state: RootState) => state.graph.filters);
   const cyRef = useRef<cytoscape.Core | null>(null);
   const prevElementsRef = useRef<typeof allElements>([]);
   const { getLayoutConfig } = useLayoutSelection();

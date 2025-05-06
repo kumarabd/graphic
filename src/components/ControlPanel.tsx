@@ -1,12 +1,30 @@
-import React from 'react';
-import { Paper, Box, Typography, Autocomplete, TextField, Chip, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../store';
+import React, { useState, useEffect } from 'react';
+import { 
+  Paper, 
+  Box, 
+  Typography, 
+  Autocomplete, 
+  TextField, 
+  Chip, 
+  Divider, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem,
+  IconButton,
+  Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Button
+} from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState, setFilters } from '../store';
 import { fetchGraphDataThunk } from '../fetchGraphData';
 import { useNodeSelection } from '../hooks/useNodeSelection';
 import { useLayoutSelection, LayoutType } from '../hooks/useLayoutSelection';
 import SyncIcon from '@mui/icons-material/Sync';
-import { IconButton, Tooltip } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 interface ControlPanelProps {
   onLayoutChange: (layout: LayoutType) => void;
@@ -14,10 +32,27 @@ interface ControlPanelProps {
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { nodesByType, selections, updateSelections } = useNodeSelection();
+  const { nodesByType, filters, updateFilters } = useNodeSelection();
   const { selectedLayout, setSelectedLayout, layoutOptions } = useLayoutSelection();
+  const currentFilters = useSelector((state: RootState) => state.graph.filters);
+
+  // Track input values separately from state
+  const [entityLimit, setEntityLimit] = useState(currentFilters.entityLimit);
+  const [relationshipLimit, setRelationshipLimit] = useState(currentFilters.relationshipLimit);
+
+  // Update local state when Redux state changes
+  useEffect(() => {
+    setEntityLimit(currentFilters.entityLimit);
+    setRelationshipLimit(currentFilters.relationshipLimit);
+  }, [currentFilters.entityLimit, currentFilters.relationshipLimit]);
 
   const handleSync = () => {
+    const newFilters = {
+      ...currentFilters,
+      entityLimit,
+      relationshipLimit
+    };
+    dispatch(setFilters(newFilters));
     dispatch(fetchGraphDataThunk());
   };
 
@@ -26,6 +61,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     setSelectedLayout(newLayout);
     onLayoutChange(newLayout);
   };
+
+  const handleLimitChange = (type: 'entity' | 'relationship', value: string) => {
+    const numValue = value === '' ? 100 : parseInt(value);
+    if (type === 'entity') {
+      setEntityLimit(numValue);
+    } else {
+      setRelationshipLimit(numValue);
+    }
+  };
+
+  const hasLimitChanges = 
+    entityLimit !== currentFilters.entityLimit || 
+    relationshipLimit !== currentFilters.relationshipLimit;
 
   return (
     <Paper 
@@ -82,16 +130,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="subjects-select"
           options={nodesByType.subjects}
-          value={nodesByType.subjects.filter(node => selections.subjects.includes(node.id))}
+          value={nodesByType.subjects.filter(node => filters.subjects.includes(node.id))}
           getOptionLabel={(option) => option.label}
-          onChange={(_, newValue) => updateSelections('subjects', newValue.map(v => v.id))}
+          onChange={(_, newValue) => updateFilters('subjects', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Subjects" variant="outlined" />
           )}
           renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip label={option.label} {...getTagProps({ index })} />
-            ))
+            value.map((option, index) => {
+              const { key, ...chipProps } = getTagProps({ index });
+              return (
+                <Chip 
+                  key={key}
+                  label={option.label}
+                  {...chipProps}
+                />
+              );
+            })
           }
         />
 
@@ -100,16 +155,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="resources-select"
           options={nodesByType.resources}
-          value={nodesByType.resources.filter(node => selections.resources.includes(node.id))}
+          value={nodesByType.resources.filter(node => filters.resources.includes(node.id))}
           getOptionLabel={(option) => option.label}
-          onChange={(_, newValue) => updateSelections('resources', newValue.map(v => v.id))}
+          onChange={(_, newValue) => updateFilters('resources', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Resources" variant="outlined" />
           )}
           renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip label={option.label} {...getTagProps({ index })} />
-            ))
+            value.map((option, index) => {
+              const { key, ...chipProps } = getTagProps({ index });
+              return (
+                <Chip 
+                  key={key}
+                  label={option.label}
+                  {...chipProps}
+                />
+              );
+            })
           }
         />
 
@@ -118,16 +180,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="resource-attributes-select"
           options={nodesByType.resourceAttributes}
-          value={nodesByType.resourceAttributes.filter(node => selections.resourceAttributes.includes(node.id))}
+          value={nodesByType.resourceAttributes.filter(node => filters.resourceAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
-          onChange={(_, newValue) => updateSelections('resourceAttributes', newValue.map(v => v.id))}
+          onChange={(_, newValue) => updateFilters('resourceAttributes', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Resource Attributes" variant="outlined" />
           )}
           renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip label={option.label} {...getTagProps({ index })} />
-            ))
+            value.map((option, index) => {
+              const { key, ...chipProps } = getTagProps({ index });
+              return (
+                <Chip 
+                  key={key}
+                  label={option.label}
+                  {...chipProps}
+                />
+              );
+            })
           }
         />
 
@@ -136,19 +205,65 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="subject-attributes-select"
           options={nodesByType.subjectAttributes}
-          value={nodesByType.subjectAttributes.filter(node => selections.subjectAttributes.includes(node.id))}
+          value={nodesByType.subjectAttributes.filter(node => filters.subjectAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
-          onChange={(_, newValue) => updateSelections('subjectAttributes', newValue.map(v => v.id))}
+          onChange={(_, newValue) => updateFilters('subjectAttributes', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Subject Attributes" variant="outlined" />
           )}
           renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip label={option.label} {...getTagProps({ index })} />
-            ))
+            value.map((option, index) => {
+              const { key, ...chipProps } = getTagProps({ index });
+              return (
+                <Chip 
+                  key={key}
+                  label={option.label}
+                  {...chipProps}
+                />
+              );
+            })
           }
         />
       </Box>
+
+      <Divider sx={{ my: 1 }} />
+
+      {/* Query Settings */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography>Advanced Settings</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Entity Limit"
+              type="number"
+              value={entityLimit}
+              onChange={(e) => handleLimitChange('entity', e.target.value)}
+              placeholder="Default: 100"
+              fullWidth
+              inputProps={{ min: 1 }}
+            />
+            <TextField
+              label="Relationship Limit"
+              type="number"
+              value={relationshipLimit}
+              onChange={(e) => handleLimitChange('relationship', e.target.value)}
+              placeholder="Default: 100"
+              fullWidth
+              inputProps={{ min: 1 }}
+            />
+            <Button
+              variant="contained"
+              onClick={handleSync}
+              disabled={!hasLimitChanges}
+              fullWidth
+            >
+              Apply
+            </Button>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
     </Paper>
   );
 };

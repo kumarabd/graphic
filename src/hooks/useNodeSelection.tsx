@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, Node, setSelections } from '../store';
+import { RootState, Node, setFilters } from '../store';
+import { AppDispatch } from '../store';
+import { fetchGraphDataThunk } from '../fetchGraphData';
 
 interface NodeOption {
   id: string;
@@ -8,9 +10,9 @@ interface NodeOption {
 }
 
 export const useNodeSelection = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const nodes = useSelector((state: RootState) => state.graph.nodes);
-  const selections = useSelector((state: RootState) => state.graph.selections);
+  const filters = useSelector((state: RootState) => state.graph.filters);
 
   // Group nodes by type
   const nodesByType = useMemo(() => {
@@ -46,17 +48,19 @@ export const useNodeSelection = () => {
     return grouped;
   }, [nodes]);
 
-  // Update selections
-  const updateSelections = (type: keyof typeof nodesByType, selectedIds: string[]) => {
-    dispatch(setSelections({
-      ...selections,
+  // Update filters and fetch new data
+  const updateFilters = (type: keyof typeof nodesByType, selectedIds: string[]) => {
+    const newFilters = {
+      ...filters,
       [type]: selectedIds
-    }));
+    };
+    dispatch(setFilters(newFilters));
+    dispatch(fetchGraphDataThunk() as any);
   };
 
   return {
     nodesByType,
-    selections,
-    updateSelections
+    filters,
+    updateFilters
   };
 };

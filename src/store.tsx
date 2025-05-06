@@ -14,23 +14,28 @@ export interface EdgeData {
   source: string;
   target: string;
   label: string;
+  type: string;
 }
 
 export interface Node {
-  group: 'nodes';
   data: NodeData;
 }
 
 export interface Edge {
-  group: 'edges';
   data: EdgeData;
 }
 
 export interface Filters {
-  subjects: string[];
-  resources: string[];
-  resourceAttributes: string[];
-  subjectAttributes: string[];
+  nodeFilters: {
+    subjects: string[];
+    resources: string[];
+    resourceAttributes: string[];
+    subjectAttributes: string[];
+  },
+  edgeFilters: {
+    assignment: boolean;
+    association: boolean;
+  };
   entityLimit: number;
   relationshipLimit: number;
 }
@@ -50,12 +55,18 @@ const initialState: GraphState = {
   loading: false,
   error: null,
   filters: {
-    subjects: [],
-    resources: [],
-    resourceAttributes: [],
-    subjectAttributes: [],
-    entityLimit: 100,
-    relationshipLimit: 100
+    nodeFilters: {
+      subjects: [],
+      resources: [],
+      resourceAttributes: [],
+      subjectAttributes: [],
+    },
+    edgeFilters: {
+      assignment: true,
+      association: true
+    },
+    entityLimit: 5000,
+    relationshipLimit: 5000
   }
 };
 
@@ -115,32 +126,41 @@ export type AppDispatch = typeof store.dispatch;
 // Memoized selectors
 const selectNodes = (state: RootState) => state.graph.nodes;
 const selectEdges = (state: RootState) => state.graph.edges;
-const selectFilters = (state: RootState) => state.graph.filters;
+const selectNodeFilters = (state: RootState) => state.graph.filters.nodeFilters;
+const selectEdgeFilters = (state: RootState) => state.graph.filters.edgeFilters;
 
 // Selector to get filtered elements
 export const selectFilteredElements = createSelector(
-  [selectNodes, selectEdges, selectFilters],
-  (nodes, edges, filters) => {
+  [selectNodes, selectEdges, selectNodeFilters, selectEdgeFilters],
+  (nodes, edges, nodeFilters, edgeFilters) => {
     let filteredNodes = nodes.filter(node => {
       const nodeType = node.data.type;
       switch (nodeType) {
         case 'subject':
-          return filters.subjects.length === 0 || filters.subjects.includes(node.data.id);
+          return nodeFilters.subjects.length === 0 || nodeFilters.subjects.includes(node.data.id);
         case 'resource':
-          return filters.resources.length === 0 || filters.resources.includes(node.data.id);
+          return nodeFilters.resources.length === 0 || nodeFilters.resources.includes(node.data.id);
         case 'resource_attribute':
-          return filters.resourceAttributes.length === 0 || filters.resourceAttributes.includes(node.data.id);
+          return nodeFilters.resourceAttributes.length === 0 || nodeFilters.resourceAttributes.includes(node.data.id);
         case 'subject_attribute':
-          return filters.subjectAttributes.length === 0 || filters.subjectAttributes.includes(node.data.id);
+          return nodeFilters.subjectAttributes.length === 0 || nodeFilters.subjectAttributes.includes(node.data.id);
         default:
           return true;
       }
     });
 
-    let filteredEdges = edges.filter(edge => 
-      filteredNodes.find(node => node.data.id === edge.data.source) && 
-      filteredNodes.find(node => node.data.id === edge.data.target)
-    );
+    let filteredEdges = edges.filter(edge => {
+      // First check if source and target nodes are visible
+      const sourceVisible = filteredNodes.find(node => node.data.id === edge.data.source);
+      const targetVisible = filteredNodes.find(node => node.data.id === edge.data.target);
+      if (!sourceVisible || !targetVisible) return false;
+
+      // Then check edge type filters
+      const edgeType = edge.data.type;
+      if (edgeType === 'assignment' && !edgeFilters.assignment) return false;
+      if (edgeType === 'association' && !edgeFilters.association) return false;
+      return true;
+    });
 
     return [...filteredNodes, ...filteredEdges];
   }

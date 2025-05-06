@@ -16,16 +16,9 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
     const state = getState();
 
     try {
-      console.log('Fetching graph data with filters:', state.graph.filters);
-
       const { data } = await client.query({
         query: getGraphQuery(state),
         fetchPolicy: 'network-only'
-      });
-
-      console.log('Received graph data:', {
-        entityCount: data.entities.length,
-        relationshipCount: data.relationships.length
       });
 
       const nodes: any[] = [];
@@ -82,7 +75,6 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
         }
       });
 
-      console.log('Processed data:', { nodeCount: nodes.length, edgeCount: edges.length });
       return { nodes, edges };
     } catch (error) {
       console.error('Error fetching graph data:', error);

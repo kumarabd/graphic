@@ -16,12 +16,19 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Button
+  Button,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState, setFilters } from '../store';
 import { fetchGraphDataThunk } from '../fetchGraphData';
 import { useNodeSelection } from '../hooks/useNodeSelection';
+import { useEdgeSelection } from '../hooks/useEdgeSelection';
 import { useLayoutSelection, LayoutType } from '../hooks/useLayoutSelection';
 import SyncIcon from '@mui/icons-material/Sync';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -33,6 +40,11 @@ interface ControlPanelProps {
 export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { nodesByType, filters, updateFilters } = useNodeSelection();
+  const { 
+    edgesByType, 
+    filters: edgeFilters, 
+    updateEdgeTypeFilter 
+  } = useEdgeSelection();
   const { selectedLayout, setSelectedLayout, layoutOptions } = useLayoutSelection();
   const currentFilters = useSelector((state: RootState) => state.graph.filters);
 
@@ -130,13 +142,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="subjects-select"
           options={nodesByType.subjects}
-          value={nodesByType.subjects.filter(node => filters.subjects.includes(node.id))}
+          value={nodesByType.subjects.filter(node => filters.nodeFilters.subjects.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('subjects', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Subjects" variant="outlined" />
           )}
-          renderTags={(value, getTagProps) =>
+          renderValue={(value, getTagProps) =>
             value.map((option, index) => {
               const { key, ...chipProps } = getTagProps({ index });
               return (
@@ -155,13 +167,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="resources-select"
           options={nodesByType.resources}
-          value={nodesByType.resources.filter(node => filters.resources.includes(node.id))}
+          value={nodesByType.resources.filter(node => filters.nodeFilters.resources.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('resources', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Resources" variant="outlined" />
           )}
-          renderTags={(value, getTagProps) =>
+          renderValue={(value, getTagProps) =>
             value.map((option, index) => {
               const { key, ...chipProps } = getTagProps({ index });
               return (
@@ -180,13 +192,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="resource-attributes-select"
           options={nodesByType.resourceAttributes}
-          value={nodesByType.resourceAttributes.filter(node => filters.resourceAttributes.includes(node.id))}
+          value={nodesByType.resourceAttributes.filter(node => filters.nodeFilters.resourceAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('resourceAttributes', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Resource Attributes" variant="outlined" />
           )}
-          renderTags={(value, getTagProps) =>
+          renderValue={(value, getTagProps) =>
             value.map((option, index) => {
               const { key, ...chipProps } = getTagProps({ index });
               return (
@@ -205,13 +217,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           multiple
           id="subject-attributes-select"
           options={nodesByType.subjectAttributes}
-          value={nodesByType.subjectAttributes.filter(node => filters.subjectAttributes.includes(node.id))}
+          value={nodesByType.subjectAttributes.filter(node => filters.nodeFilters.subjectAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('subjectAttributes', newValue.map(v => v.id))}
           renderInput={(params) => (
             <TextField {...params} label="Subject Attributes" variant="outlined" />
           )}
-          renderTags={(value, getTagProps) =>
+          renderValue={(value, getTagProps) =>
             value.map((option, index) => {
               const { key, ...chipProps } = getTagProps({ index });
               return (
@@ -224,6 +236,55 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
             })
           }
         />
+      </Box>
+
+      <Divider sx={{ my: 1 }} />
+
+      {/* Edge Filters */}
+      <Typography variant="subtitle1" gutterBottom>
+        Edge Filters
+      </Typography>
+      <Box>
+        <FormGroup>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={edgeFilters.assignment}
+                onChange={(e) => updateEdgeTypeFilter('assignment', e.target.checked)}
+              />
+            }
+            label={`Assignment (${edgesByType.assignment.length} total)`}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={edgeFilters.association}
+                onChange={(e) => updateEdgeTypeFilter('association', e.target.checked)}
+              />
+            }
+            label={`Association (${edgesByType.association.length} total)`}
+          />
+        </FormGroup>
+        
+        {/* Edge Details */}
+        <List dense>
+          {edgeFilters.assignment && edgesByType.assignment.length > 0 && (
+            <ListItem>
+              <ListItemText 
+                primary="Visible Assignment Edges"
+                secondary={`${edgesByType.assignment.length} of ${edgesByType.assignment.length} edges`}
+              />
+            </ListItem>
+          )}
+          {edgeFilters.association && edgesByType.association.length > 0 && (
+            <ListItem>
+              <ListItemText 
+                primary="Visible Association Edges"
+                secondary={`${edgesByType.association.length} of ${edgesByType.association.length} edges`}
+              />
+            </ListItem>
+          )}
+        </List>
       </Box>
 
       <Divider sx={{ my: 1 }} />

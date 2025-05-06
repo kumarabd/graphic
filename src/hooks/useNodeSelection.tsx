@@ -26,7 +26,8 @@ export const useNodeSelection = () => {
     nodes.forEach(node => {
       const option = {
         id: node.data.id,
-        label: node.data.label
+        label: node.data.label || node.data.id,
+        type: node.data.type
       };
 
       switch (node.data.type) {

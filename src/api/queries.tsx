@@ -14,7 +14,7 @@ export interface EntityFilters {
 
 export const getGraphQuery = (state: RootState) => {
   // Build individual where clauses for each filter type
-  const buildWhereClause = (type: string, items?: string[]) => {
+  const buildWhereClauseForEntity = (type: string, items?: string[]) => {
     if (!Array.isArray(items) || items.length === 0) {
       // If no items selected for this type, include all of this type
       return `{type: {equals: "${type}"}}`;
@@ -23,16 +23,37 @@ export const getGraphQuery = (state: RootState) => {
     return `{and: [{type: {equals: "${type}"}}, {hash_id: {in: [${items.map(s => `"${s}"`).join(',')}]}}]}`;
   };
 
+  const buildWhereClauseForRelationship = (type: string, enable: boolean) => {
+    if (enable) {
+      return `${type}`;
+    }
+    return null;
+  };
+  
   const { filters } = state.graph;
-  const whereClauses = [
-    buildWhereClause("subject", filters.subjects),
-    buildWhereClause("resource", filters.resources),
-    buildWhereClause("resource_attribute", filters.resourceAttributes),
-    buildWhereClause("subject_attribute", filters.subjectAttributes)
-  ];
 
-  // Always combine with OR since we want to show all types
-  const entityWhereClause = `{or: [${whereClauses.join(',')}]}`;
+  const { nodeFilters } = filters;
+  const entityClauses = [
+    buildWhereClauseForEntity("subject", nodeFilters.subjects),
+    buildWhereClauseForEntity("resource", nodeFilters.resources),
+    buildWhereClauseForEntity("resource_attribute", nodeFilters.resourceAttributes),
+    buildWhereClauseForEntity("subject_attribute", nodeFilters.subjectAttributes)
+  ];
+  
+  // Build relationship clauses only for enabled edge types
+  const { edgeFilters } = filters;
+  const relationshipClauses = [
+    buildWhereClauseForRelationship("assignment", edgeFilters.assignment),
+    buildWhereClauseForRelationship("association", edgeFilters.association),
+  ].filter(Boolean); // Remove null values
+
+  // Always combine entities with OR since we want to show all types
+  const entityWhereClause = `{or: [{deleted_at:{isNull:true}}, ${entityClauses.join(',')}]}`;
+  
+  // Only include relationship types that are enabled
+  const relationshipWhereClause = relationshipClauses.length > 0 
+    ? `{and: [{deleted_at:{isNull:true}}, {type: {regex: "${relationshipClauses.join('|')}"}}]}`
+    : `{type: {notRegex: "assignment|association"}}`; // No edge types enabled, return no edges
 
   return gql`
     query GetGraph {
@@ -46,7 +67,7 @@ export const getGraphQuery = (state: RootState) => {
       }
       relationships(
         limit: ${filters.relationshipLimit}, 
-        where: {or: [{type: {equals:"assignment"}},{type: {equals:"association"}}]}
+        where: ${relationshipWhereClause}
       ) {
         hash_id
         from_id

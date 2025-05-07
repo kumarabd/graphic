@@ -145,6 +145,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           value={nodesByType.subjects.filter(node => filters.nodeFilters.subjects.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('subjects', newValue.map(v => v.id))}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           renderInput={(params) => (
             <TextField {...params} label="Subjects" variant="outlined" />
           )}
@@ -170,6 +171,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           value={nodesByType.resources.filter(node => filters.nodeFilters.resources.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('resources', newValue.map(v => v.id))}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           renderInput={(params) => (
             <TextField {...params} label="Resources" variant="outlined" />
           )}
@@ -195,6 +197,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           value={nodesByType.resourceAttributes.filter(node => filters.nodeFilters.resourceAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('resourceAttributes', newValue.map(v => v.id))}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           renderInput={(params) => (
             <TextField {...params} label="Resource Attributes" variant="outlined" />
           )}
@@ -220,6 +223,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
           value={nodesByType.subjectAttributes.filter(node => filters.nodeFilters.subjectAttributes.includes(node.id))}
           getOptionLabel={(option) => option.label}
           onChange={(_, newValue) => updateFilters('subjectAttributes', newValue.map(v => v.id))}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           renderInput={(params) => (
             <TextField {...params} label="Subject Attributes" variant="outlined" />
           )}
@@ -253,7 +257,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                 onChange={(e) => updateEdgeTypeFilter('assignment', e.target.checked)}
               />
             }
-            label={`Assignment (${edgesByType.assignment.length} total)`}
+            label={`Assignments`}
           />
           <FormControlLabel
             control={
@@ -262,7 +266,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                 onChange={(e) => updateEdgeTypeFilter('association', e.target.checked)}
               />
             }
-            label={`Association (${edgesByType.association.length} total)`}
+            label={`Associations`}
           />
         </FormGroup>
         

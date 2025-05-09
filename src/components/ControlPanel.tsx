@@ -158,6 +158,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     setNewFilterKey('');
     setSelectedValues([]);
     setPendingFilter(false);
+    handleSync();
   };
   
   const handleRemoveFilter = (index: number) => {
@@ -167,6 +168,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
       // Remove the filter using our hook
       removeFilter(filterKey, 'filterNodesByType');
     }
+    handleSync();
   };
   
   const handleCancelFilter = () => {
@@ -189,8 +191,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
         value.toLowerCase().includes(lowerQuery)
       );
     }
+
+    // Remove duplicates
+    const uniquevalues: string[] = Array.from(new Set(values));
     
-    return values;
+    return uniquevalues;
   };
   
   // Handle showing more items
@@ -321,7 +326,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                         <Box key={index} sx={{ mb: index < nodeFilters.length - 1 ? 1 : 0 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                             <Typography variant="body2" fontWeight={500} color="primary">
-                              {filter.key === 'type' ? 'Node Type' : filter.key === 'name' ? 'Node Name' : filter.key}
+                              {filter.key}
                             </Typography>
                             <IconButton 
                               size="small" 
@@ -424,7 +429,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                               }}
                             />
                           )}
-
                           renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                               <Chip
@@ -457,12 +461,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                             return limitedOptions;
                           }}
                           isOptionEqualToValue={(option, value) => {
-                            // Handle the "Show more" option
+                            // Skip comparison for "Show more" option
                             if (option.startsWith('Show more')) {
                               return false;
                             }
-                            // Check if the option is in the selectedValues array
-                            // This ensures options are properly shown as selected in the dropdown
+                            // Simple string comparison
                             return option === value;
                           }}
                           getOptionDisabled={(option) => option.startsWith('Show more')}
@@ -506,7 +509,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                               );
                             }
                             
-                            // Regular option
+                            // Regular option with correct selected state check
                             return (
                               <li {...props}>
                                 <Checkbox

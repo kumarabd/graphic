@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { LayoutOptions } from 'cytoscape';
+import { LayoutType } from '../types';
 import { 
   breadthfirstLayout, 
   circleLayout, 
@@ -13,9 +14,7 @@ import {
   layouts as allLayouts 
 } from '../layouts';
 
-export type LayoutType = 'breadthfirst' | 'circle' | 'concentric' | 'cose' | 'fcose' | 'grid' | 
-  'klay' | 'cola' | 'dagre' |
-  'elk_box' | 'elk_disco' | 'elk_force' | 'elk_layered' | 'elk_mrtree' | 'elk_random' | 'elk_stress';
+// Using LayoutType from types directory
 
 const layouts: Record<LayoutType, LayoutOptions> = {
   breadthfirst: breadthfirstLayout,

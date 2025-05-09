@@ -1,7 +1,7 @@
 // fetchGraphData.tsx
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { client } from './api/client';
-import { getGraphQuery } from './api/queries';
+import { getNodesQuery, getEdgesQuery } from './api/queries';
 import { RootState, Node, Edge } from './store';
 
 interface GraphData {
@@ -16,10 +16,20 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
     const state = getState();
 
     try {
-      const { data } = await client.query({
-        query: getGraphQuery(state),
-        fetchPolicy: 'network-only'
-      });
+      // Fetch nodes and edges in parallel using separate queries
+      const [nodesResponse, edgesResponse] = await Promise.all([
+        client.query({
+          query: getNodesQuery(state),
+          fetchPolicy: 'network-only'
+        }),
+        client.query({
+          query: getEdgesQuery(state),
+          fetchPolicy: 'network-only'
+        })
+      ]);
+      
+      const nodesData = nodesResponse.data;
+      const edgesData = edgesResponse.data;
 
       const nodes: any[] = [];
       const edges: any[] = [];
@@ -27,7 +37,7 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
       const uniqueEntities = new Set<string>();
 
       // First collect all entity types
-      data.entities.forEach((entity: any) => {
+      nodesData.entities.forEach((entity: any) => {
         uniqueEntities.add(entity.type);
       });
 
@@ -45,7 +55,7 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
       });
 
       // Then add child nodes
-      data.entities.forEach((entity: any) => {
+      nodesData.entities.forEach((entity: any) => {
         nodes.push({
           group: 'nodes',
           data: {
@@ -59,7 +69,7 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: Ro
       });
 
       // Process relationships as edges
-      data.relationships.forEach((rel: any) => {
+      edgesData.relationships.forEach((rel: any) => {
         if (nodeIds.has(rel.from_id) && nodeIds.has(rel.to_id)) {
           edges.push({
             group: 'edges',

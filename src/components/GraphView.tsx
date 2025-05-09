@@ -1,18 +1,16 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, memo } from 'react';
 import { Paper, Typography, Button } from '@mui/material';
-import { useSelector } from 'react-redux';
-import { RootState, selectFilteredElements, Node, Edge, NodeData, EdgeData } from '../store';
 import CytoscapeComponent from 'react-cytoscapejs';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { Stylesheet, ElementDefinition, NodeDataDefinition, EdgeDataDefinition } from 'cytoscape';
+import { Stylesheet } from 'cytoscape';
 import cytoscape from 'cytoscape';
 import setupCy from '../setupCy';
-import { useLayoutSelection, LayoutType } from '../hooks/useLayoutSelection';
+import { useLayoutSelection } from '../hooks/useLayout';
+import { useNodeSelection } from '../hooks/useNode';
+import { useEdgeSelection } from '../hooks/useEdge';
+import { GraphViewProps, LayoutType } from '../types';
 
-interface GraphViewProps {
-  stylesheet: Stylesheet[];
-  selectedLayout: LayoutType;
-}
+// Using GraphViewProps from types
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
@@ -35,48 +33,45 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   );
 }
 
-export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout }) => {
-  const allElements = useSelector(selectFilteredElements);
-  const filters = useSelector((state: RootState) => state.graph.filters);
+export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedLayout }) => {
+  // Use the node and edge selection hooks instead of useGraphData
+  const { nodeElements, hasElements, refreshNodes } = useNodeSelection();
+  const { edgeElements, refreshEdges } = useEdgeSelection();
   const cyRef = useRef<cytoscape.Core | null>(null);
-  const prevElementsRef = useRef<typeof allElements>([]);
+  const prevElementsRef = useRef<any[]>([]);
   const { getLayoutConfig } = useLayoutSelection();
-
+  
+  // Fetch initial data when component mounts
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      console.log('Fetching initial graph data...');
+      try {
+        const [nodesResult, edgesResult] = await Promise.all([
+          refreshNodes(),
+          refreshEdges()
+        ]);
+        
+        if (nodesResult && edgesResult) {
+          console.log('Initial graph data loaded successfully');
+        } else {
+          console.warn('Some initial graph data could not be loaded');
+        }
+      } catch (error) {
+        console.error('Error loading initial graph data:', error);
+      }
+    };
+    
+    fetchInitialData();
+  }, [refreshNodes, refreshEdges]);
+  
   // Initialize Cytoscape extensions
   useEffect(() => {
     setupCy();
   }, []);
 
-  // Convert filtered elements to Cytoscape format
-  const cytoscapeElements = useMemo(() => {
-    return allElements.map(element => {
-      if ('source' in element.data) {
-        // It's an edge
-        const edgeData = element.data as EdgeData;
-        return {
-          group: 'edges' as const,
-          data: {
-            id: edgeData.id,
-            source: edgeData.source,
-            target: edgeData.target,
-            type: edgeData.type,
-            label: edgeData.label
-          }
-        };
-      } else {
-        // It's a node
-        const nodeData = element.data as NodeData;
-        return {
-          group: 'nodes' as const,
-          data: nodeData
-        };
-      }
-    }) as ElementDefinition[];
-  }, [allElements]);
-
   // Handle layout and viewport updates
   const updateLayout = useCallback(() => {
-    if (!cyRef.current || allElements.length === 0) return;
+    if (!cyRef.current || (nodeElements.length === 0 && edgeElements.length === 0)) return;
 
     const cy = cyRef.current;
     try {
@@ -86,16 +81,17 @@ export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout
       cy.layout(layoutConfig).run();
       cy.center();
       cy.fit();
-      prevElementsRef.current = allElements;
+      prevElementsRef.current = [...nodeElements, ...edgeElements];
     } catch (error) {
       console.error("Error in Cytoscape layout:", error);
     }
-  }, [allElements, selectedLayout, getLayoutConfig]);
+  }, [nodeElements, edgeElements, selectedLayout, getLayoutConfig]);
 
-  // Apply layout when elements, filters, or layout changes
+  // Apply layout when nodes, edges, or layout changes
   useEffect(() => {
+    // Update the layout
     updateLayout();
-  }, [allElements, filters, selectedLayout, updateLayout]);
+  }, [nodeElements, edgeElements, selectedLayout, updateLayout]);
 
   // Handle window resize
   useEffect(() => {
@@ -110,7 +106,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (!allElements || allElements.length === 0) {
+  if (!hasElements) {
     return (
       <Paper sx={{ p: 3, textAlign: 'center' }}>
         <Typography>Loading graph data...</Typography>
@@ -135,7 +131,7 @@ export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout
     >
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <CytoscapeComponent
-          elements={cytoscapeElements}
+          elements={[...nodeElements,...edgeElements]}
           style={{
             width: '100%',
             height: '100%',
@@ -150,4 +146,4 @@ export const GraphView: React.FC<GraphViewProps> = ({ stylesheet, selectedLayout
       </ErrorBoundary>
     </Paper>
   );
-};
+});

@@ -1,72 +1,72 @@
 // queries.ts
 import { gql } from '@apollo/client';
+import { KVFilter } from '../types';
 import { RootState } from '../store';
 
-// GraphQL queries for nodes and edges
-export interface EntityFilters {
-  subjects?: string[];
-  resources?: string[];
-  resourceAttributes?: string[];
-  subjectAttributes?: string[];
-  entityLimit: number;
-  relationshipLimit: number;
-}
-
-export const getGraphQuery = (state: RootState) => {
-  // Build individual where clauses for each filter type
-  const buildWhereClauseForEntity = (type: string, items?: string[]) => {
-    if (!Array.isArray(items) || items.length === 0) {
-      // If no items selected for this type, include all of this type
-      return `{type: {equals: "${type}"}}`;
-    }
-    // If items selected, filter by hash_id for this type
-    return `{and: [{type: {equals: "${type}"}}, {hash_id: {in: [${items.map(s => `"${s}"`).join(',')}]}}]}`;
-  };
-
-  const buildWhereClauseForRelationship = (type: string, enable: boolean) => {
-    if (enable) {
-      return `${type}`;
-    }
+/**
+ * Helper function to build where clauses for GraphQL queries
+ */
+const buildWhereClause = (key: string, values?: string[]) => {
+  if (!Array.isArray(values) || values.length === 0) {
+    // If no items selected for this type, include all of this type
     return null;
-  };
-  
+  }
+  // If items selected, filter by hash_id for this type
+  return `{${key}: {in: [${values.map(s => `"${s}"`).join(',')}]}}`;
+};
+
+/**
+ * Get query for fetching nodes/entities based on filters
+ */
+export const getNodesQuery = (state: RootState) => {
   const { filters } = state.graph;
-
   const { nodeFilters } = filters;
-  const entityClauses = [
-    buildWhereClauseForEntity("subject", nodeFilters.subjects),
-    buildWhereClauseForEntity("resource", nodeFilters.resources),
-    buildWhereClauseForEntity("resource_attribute", nodeFilters.resourceAttributes),
-    buildWhereClauseForEntity("subject_attribute", nodeFilters.subjectAttributes)
-  ];
   
-  // Build relationship clauses only for enabled edge types
-  const { edgeFilters } = filters;
-  const relationshipClauses = [
-    buildWhereClauseForRelationship("assignment", edgeFilters.assignment),
-    buildWhereClauseForRelationship("association", edgeFilters.association),
-  ].filter(Boolean); // Remove null values
-
-  // Always combine entities with OR since we want to show all types
-  const entityWhereClause = `{or: [{deleted_at:{isNull:true}}, ${entityClauses.join(',')}]}`;
+  // Build filter clauses for each node filter type
+  const entityClauses = nodeFilters
+    .map((filter: KVFilter) => buildWhereClause(filter.key, filter.values))
+    .filter(Boolean); // Remove null values
   
-  // Only include relationship types that are enabled
-  const relationshipWhereClause = relationshipClauses.length > 0 
-    ? `{and: [{deleted_at:{isNull:true}}, {type: {regex: "${relationshipClauses.join('|')}"}}]}`
-    : `{type: {notRegex: "assignment|association"}}`; // No edge types enabled, return no edges
+  // Always combine entities with AND for deletion check and OR for types
+  const entityWhereClause = entityClauses.length > 0
+    ? `where: {and: [{deleted_at:{isNull:true}}, ${entityClauses.join(',')}]}`
+    : `where: {deleted_at:{isNull:true}}`;
 
   return gql`
-    query GetGraph {
+    query GetNodes {
       entities(
-        limit: ${filters.entityLimit}, 
-        where: ${entityWhereClause}
+        limit: ${filters.nodeLimit}, 
+        ${entityWhereClause}
       ) {
         hash_id
         name
         type
       }
+    }
+  `;
+};
+
+/**
+ * Get query for fetching edges/relationships based on filters
+ */
+export const getEdgesQuery = (state: RootState) => {
+  const { filters } = state.graph;
+  const { edgeFilters } = filters;
+  
+  // Build relationship clauses only for enabled edge types
+  const relationshipClauses = edgeFilters
+    .map((filter: KVFilter) => buildWhereClause(filter.key, filter.values))
+    .filter(Boolean); // Remove null values
+  
+  // Only include relationship types that are enabled
+  const relationshipWhereClause = relationshipClauses.length > 0 
+    ? `{and: [{deleted_at:{isNull:true}}, {type: {regex: "${relationshipClauses.join('|')}"}}]}`
+    : `{deleted_at:{isNull:true}}`; // Default to just checking for non-deleted
+
+  return gql`
+    query GetEdges {
       relationships(
-        limit: ${filters.relationshipLimit}, 
+        limit: ${filters.edgeLimit}, 
         where: ${relationshipWhereClause}
       ) {
         hash_id

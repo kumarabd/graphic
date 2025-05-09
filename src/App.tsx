@@ -7,9 +7,10 @@ import { Header } from './components/Header';
 import { ControlPanel } from './components/ControlPanel';
 import { GraphView } from './components/GraphView';
 import { RootState, AppDispatch } from './store';
+import { Node, Edge, LayoutType } from './types';
 import { Stylesheet } from 'cytoscape';
 import { fetchGraphDataThunk } from './fetchGraphData';
-import { LayoutType } from './hooks/useLayoutSelection';
+import { GraphProvider } from './context/GraphContext';
 
 export default function App() {
   const dispatch = useDispatch<AppDispatch>();
@@ -70,6 +71,10 @@ export default function App() {
     setCurrentLayout(layout);
   };
 
+  // Get nodes and edges from Redux store for initial state
+  const nodes = useSelector((state: RootState) => state.graph.nodes);
+  const edges = useSelector((state: RootState) => state.graph.edges);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -80,15 +85,25 @@ export default function App() {
         bgcolor: 'background.default',
       }}>
         <Header onToggleTheme={toggleTheme} />
-        <Box sx={{ 
-          display: 'flex', 
-          flexGrow: 1,
-          gap: 2,
-          p: 2,
-        }}>
-          <ControlPanel onLayoutChange={handleLayoutChange} />
-          <GraphView stylesheet={stylesheet} selectedLayout={currentLayout} />
-        </Box>
+        <GraphProvider 
+          initialNodes={nodes} 
+          initialEdges={edges} 
+          initialLayout={currentLayout} 
+          initialStylesheet={stylesheet}
+        >
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            flexGrow: 1,
+            gap: 2,
+            p: 2,
+          }}>
+            <ControlPanel onLayoutChange={handleLayoutChange} />
+            <Box sx={{ flexGrow: 1 }}>
+              <GraphView stylesheet={stylesheet} selectedLayout={currentLayout} />
+            </Box>
+          </Box>
+        </GraphProvider>
       </Box>
     </ThemeProvider>
   );

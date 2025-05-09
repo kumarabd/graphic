@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, Node, setFilters } from '../store';
-import { AppDispatch } from '../store';
+import { useGraphContext } from '../context/GraphContext';
+import { Node, KVFilter } from '../types';
+import { useDispatch } from 'react-redux';
+import { unwrapResult } from '@reduxjs/toolkit';
 import { fetchGraphDataThunk } from '../fetchGraphData';
+import { AppDispatch } from '../store';
 
 type NodeType = 'subjects' | 'resources' | 'resourceAttributes' | 'subjectAttributes';
 
@@ -12,9 +14,14 @@ interface NodeOption {
 }
 
 export const useNodeSelection = () => {
-  const dispatch = useDispatch<AppDispatch>();
-  const nodes = useSelector((state: RootState) => state.graph.nodes);
-  const filters = useSelector((state: RootState) => state.graph.filters);
+  // Get data and dispatch from context
+  const { nodeElements, hasElements, state, dispatch } = useGraphContext();
+  
+  // Get Redux dispatch for data fetching
+  const reduxDispatch = useDispatch<AppDispatch>();
+  
+  // Extract nodes from nodeElements for backward compatibility
+  const nodes = state.nodes;
 
   // Filter nodes by type
   const getNodesByType = useCallback((type: NodeType) => {
@@ -46,33 +53,31 @@ export const useNodeSelection = () => {
     subjectAttributes: getNodesByType('subjectAttributes'),
   }), [getNodesByType]);
 
-  // Update filters for a specific node type
-  const updateFilters = useCallback((type: NodeType, selectedIds: string[]) => {
-    // Only update the specific node type's filter
-    const newFilters = {
-      ...filters,
-      nodeFilters: {
-        ...filters.nodeFilters,
-        [type]: selectedIds
+  // Function to refresh node data from the API
+  const refreshNodes = useCallback(async () => {
+    try {
+      console.log('Refreshing nodes from API...');
+      const resultAction = await reduxDispatch(fetchGraphDataThunk());
+      
+      if (resultAction.type.endsWith('/fulfilled')) {
+        // Safely unwrap the result
+        const payload = unwrapResult(resultAction);
+        // Update the GraphContext with the new data
+        dispatch({ type: 'SET_NODES', payload: payload.nodes });
+        console.log('Nodes refreshed successfully');
+        return true;
       }
-    };
-    
-    // Dispatch updates
-    dispatch(setFilters(newFilters));
-    dispatch(fetchGraphDataThunk() as any);
-  }, [dispatch, filters]);
-
-  // Get filtered nodes for a specific type
-  const getFilteredNodes = useCallback((type: NodeType) => {
-    const selectedIds = filters.nodeFilters[type];
-    return nodesByType[type].filter(node => 
-      selectedIds.length === 0 || selectedIds.includes(node.id)
-    );
-  }, [filters.nodeFilters, nodesByType]);
+      return false;
+    } catch (error) {
+      console.error('Error refreshing nodes:', error);
+      return false;
+    }
+  }, [reduxDispatch, dispatch]);
 
   return {
     nodesByType,
-    filters,
-    updateFilters
+    nodeElements,
+    hasElements,
+    refreshNodes
   };
 };

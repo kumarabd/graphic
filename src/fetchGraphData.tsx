@@ -9,21 +9,26 @@ interface GraphData {
   edges: Edge[];
 }
 
+interface FetchGraphOptions {
+  skipFilters?: boolean;
+}
+
 // This will return a thunk that fetches the data and dispatches to Redux
-export const fetchGraphDataThunk = createAsyncThunk<GraphData, void, { state: RootState }>(
+export const fetchGraphDataThunk = createAsyncThunk<GraphData, FetchGraphOptions | undefined, { state: RootState }>(
   'graph/fetchData',
-  async (_, { getState }) => {
+  async (options = {}, { getState }) => {
+    const { skipFilters = false } = options as FetchGraphOptions;
     const state = getState();
 
     try {
       // Fetch nodes and edges in parallel using separate queries
       const [nodesResponse, edgesResponse] = await Promise.all([
         client.query({
-          query: getNodesQuery(state),
+          query: getNodesQuery(state, skipFilters),
           fetchPolicy: 'network-only'
         }),
         client.query({
-          query: getEdgesQuery(state),
+          query: getEdgesQuery(state, skipFilters),
           fetchPolicy: 'network-only'
         })
       ]);

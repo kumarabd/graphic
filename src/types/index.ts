@@ -24,17 +24,25 @@ export interface Edge {
   data: EdgeData;
 }
 
-// Filter types
+/**
+ * Types of filters that can be applied
+ */
 export interface KVFilter {
   key: string;
   values: string[];
 }
 
+export type FilterType = 'node' | 'edge' | 'both';
+
 export interface Filters {
-  nodeFilters: KVFilter[];
-  edgeFilters: KVFilter[];
-  nodeLimit: number;
-  edgeLimit: number;
+  node: {
+    filter: KVFilter[];
+    limit: number;
+  }
+  edge: {
+    filter: KVFilter[];
+    limit: number;
+  }
 }
 
 // Layout types
@@ -60,19 +68,11 @@ export type LayoutType =
 export interface GraphState {
   nodes: Node[];
   edges: Edge[];
-  nodeFilters: KVFilter[];
-  edgeFilters: KVFilter[];
-  selectedLayout: LayoutType;
-  stylesheet: Stylesheet[];
-}
-
-// Redux store state types
-export interface StoreGraphState {
-  nodes: Node[];
-  edges: Edge[];
+  filters: Filters;
   loading: boolean;
   error: string | null;
-  filters: Filters;
+  selectedLayout: LayoutType;
+  stylesheet: Stylesheet[];
 }
 
 // Redux state types

@@ -35,8 +35,9 @@ import {
   CircularProgress
 } from '@mui/material';
 import { useFilter } from '../hooks/useFilter';
-import { useNodeSelection } from '../hooks/useNode';
-import { useEdgeSelection } from '../hooks/useEdge';
+import { useCytoscape } from '../context/CytoscapeContext';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { useEdgeSelection } from '../hooks/useEdgeSelection';
 import { useLayoutSelection } from '../hooks/useLayout';
 import { useLimits } from '../hooks/useLimits';
 import { KVFilter, LayoutType } from '../types';
@@ -56,14 +57,15 @@ interface ControlPanelProps {
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) => {
   const theme = useTheme();
-  const { nodesByType, nodeElements, refreshNodes } = useNodeSelection();
-  const { edgesByType, edgeElements, refreshEdges } = useEdgeSelection();
+  const { nodeElements, refreshNodes } = useNodeSelection();
+  const { edgeElements, refreshEdges } = useEdgeSelection();
   const { selectedLayout, setSelectedLayout, layoutOptions } = useLayoutSelection();
   
   // State for pagination and search in the filter dropdown
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleItemCount, setVisibleItemCount] = useState(20);
-  // Use our filter hook with all the filter functionality
+
+  // Use our filter hook with Cytoscape's built-in filtering capabilities
   const {
     nodeFilters,
     edgeFilters,
@@ -78,7 +80,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     pendingFilter,
     setPendingFilter,
     resetFilterForm,
-    applyFilter
+    // Using the direct Cytoscape filtering methods
+    applyCytoscapeFilter
   } = useFilter();
   // Limits hook - now with built-in change tracking
   const { limits, setLimits, hasLimitChanges, applyLimitChanges } = useLimits();
@@ -131,7 +134,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     setSelectedLayout(newLayout);
     onLayoutChange(newLayout);
   };
-  const allNodeNames = useMemo(() => Object.values(nodesByType).flat().map(node => node.label), [nodesByType]);
 
   const handleKeyChange = (key: string) => {
     setNewFilterKey(key);
@@ -149,41 +151,46 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
 
   const handleApplyFilter = () => {
     if (newFilterKey && selectedValues.length > 0) {
-      // Add the filter using our hook
+      // Add the filter directly using the hook
       addFilter(newFilterKey, selectedValues, 'filterNodesByType');
     }
-    
-    // Reset form for next filter
-    setFilterFormVisible(false);
-    setNewFilterKey('');
-    setSelectedValues([]);
-    setPendingFilter(false);
-    handleSync();
   };
   
   const handleRemoveFilter = (index: number) => {
-    // Get the filter key from the nodeFilters array
-    const filterKey = nodeFilters[index]?.key;
-    if (filterKey) {
-      // Remove the filter using our hook
-      removeFilter(filterKey, 'filterNodesByType');
-    }
-    handleSync();
+    // Call the removeFilter function directly with the index
+    removeFilter(index, 'filterNodesByType');
   };
   
   const handleCancelFilter = () => {
     resetFilterForm();
   };
+  
+  // Apply all current filters directly using Cytoscape
+  const applyAllFilters = useCallback(() => {
+    console.log('applyAllFilters filter:', nodeFilters, edgeFilters);
+    // Apply node filters
+    applyCytoscapeFilter('node', nodeFilters);
+    
+    // Apply edge filters
+    applyCytoscapeFilter('edge', edgeFilters);
+  }, [applyCytoscapeFilter, nodeFilters, edgeFilters]);
+  
+  // Apply filters once on mount
+  useEffect(() => {
+    applyAllFilters();
+  }, []);
 
   // Get available values based on selected key
   const getAvailableValues = (): string[] => {
     let values: string[] = [];
     if (newFilterKey === 'type') {
+      // Use allNodeTypes from our hook, or fall back to hardcoded values if not loaded yet
       values = ['subject', 'resource', 'subject_attribute', 'resource_attribute'];
     } else if (newFilterKey === 'name') {
-      values = allNodeNames;
+      // Use the pre-computed node labels
+      values = nodeElements.map(node => node.data.label);
     }
-    
+
     // Filter values based on search query if provided
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
@@ -400,22 +407,22 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                         <Autocomplete
                           multiple
                           size="small"
-                          options={getAvailableValues()}
-                          value={selectedValues}
+                          options={getAvailableValues().filter(Boolean)} // Ensure no undefined/null values
+                          value={selectedValues.filter(Boolean)} // Ensure no undefined/null values
                           onChange={(event, newValue) => {
-                            setSelectedValues(newValue);
+                            setSelectedValues(newValue.filter(Boolean)); // Filter out any undefined values
                           }}
                           inputValue={searchQuery}
                           onInputChange={(event, newInputValue) => {
-                            setSearchQuery(newInputValue);
+                            setSearchQuery(newInputValue || ''); // Ensure newInputValue is never undefined
                           }}
                           disableCloseOnSelect
                           renderInput={(params) => (
                             <TextField 
                               {...params} 
-                              label={newFilterKey === 'type' ? 'Types' : 'Names'}
-                              placeholder={newFilterKey === 'type' ? 'start typing to search...' : 'start typing to search...'}
-                              helperText={newFilterKey === 'type' ? 'Select one or more node types' : 'Select one or more node names'}
+                              label={newFilterKey.charAt(0).toUpperCase() + newFilterKey.slice(1) + 's'}
+                              placeholder={`start typing to search...`}
+                              helperText={`Select one or more node ${newFilterKey}s`}
                               InputProps={{
                                 ...params.InputProps,
                                 startAdornment: (
@@ -483,12 +490,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                             }
                           }}
                           renderOption={(props, option) => {
+                            const { key, ...otherProps } = props;
                             // Handle "Show more" option
                             if (option.startsWith('Show more')) {
                               return (
-                                <Box 
-                                  component="li"
-                                  {...props}
+                                <Box key={key} component="li" {...otherProps}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -511,7 +517,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                             
                             // Regular option with correct selected state check
                             return (
-                              <li {...props}>
+                              <li key={key} {...otherProps}>
                                 <Checkbox
                                   icon={<CheckIcon style={{ visibility: 'hidden' }} />}
                                   checkedIcon={<CheckIcon />}

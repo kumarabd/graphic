@@ -6,8 +6,9 @@ import { Stylesheet } from 'cytoscape';
 import cytoscape from 'cytoscape';
 import setupCy from '../setupCy';
 import { useLayoutSelection } from '../hooks/useLayout';
-import { useNodeSelection } from '../hooks/useNode';
-import { useEdgeSelection } from '../hooks/useEdge';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { useEdgeSelection } from '../hooks/useEdgeSelection';
+import { useCytoscape } from '../context/CytoscapeContext';
 import { GraphViewProps, LayoutType } from '../types';
 
 // Using GraphViewProps from types
@@ -37,9 +38,11 @@ export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedL
   // Use the node and edge selection hooks instead of useGraphData
   const { nodeElements, hasElements, refreshNodes } = useNodeSelection();
   const { edgeElements, refreshEdges } = useEdgeSelection();
-  const cyRef = useRef<cytoscape.Core | null>(null);
+  const { setCyInstance, cyInstance, applyLayout, resetView } = useCytoscape();
   const prevElementsRef = useRef<any[]>([]);
   const { getLayoutConfig } = useLayoutSelection();
+  
+
   
   // Fetch initial data when component mounts
   useEffect(() => {
@@ -71,21 +74,21 @@ export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedL
 
   // Handle layout and viewport updates
   const updateLayout = useCallback(() => {
-    if (!cyRef.current || (nodeElements.length === 0 && edgeElements.length === 0)) return;
+    if (!cyInstance || (nodeElements.length === 0 && edgeElements.length === 0)) return;
 
-    const cy = cyRef.current;
     try {
       // Get the current layout configuration
       const layoutConfig = getLayoutConfig(selectedLayout);
       
-      cy.layout(layoutConfig).run();
-      cy.center();
-      cy.fit();
+      // Use the layout function from context
+      cyInstance.layout(layoutConfig).run();
+      cyInstance.center();
+      cyInstance.fit();
       prevElementsRef.current = [...nodeElements, ...edgeElements];
     } catch (error) {
       console.error("Error in Cytoscape layout:", error);
     }
-  }, [nodeElements, edgeElements, selectedLayout, getLayoutConfig]);
+  }, [nodeElements, edgeElements, selectedLayout, getLayoutConfig, cyInstance]);
 
   // Apply layout when nodes, edges, or layout changes
   useEffect(() => {
@@ -96,15 +99,15 @@ export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedL
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      if (cyRef.current) {
-        cyRef.current.resize();
-        cyRef.current.fit();
+      if (cyInstance) {
+        cyInstance.resize();
+        cyInstance.fit();
       }
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [cyInstance]);
 
   if (!hasElements) {
     return (
@@ -138,7 +141,11 @@ export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedL
           }}
           layout={getLayoutConfig(selectedLayout)}
           stylesheet={stylesheet}
-          cy={(cy) => { cyRef.current = cy; }}
+          cy={(cy) => { 
+            // Pass the Cytoscape instance to the context
+            // This will make it available to all components that use the context
+            setCyInstance(cy);
+          }}
           wheelSensitivity={0.2}
           minZoom={0.3}
           maxZoom={3}

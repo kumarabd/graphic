@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import { useNodeSelection } from '../hooks/useNode';
-import { useEdgeSelection } from '../hooks/useEdge';
+import { useNodeSelection } from './useNodeSelection';
+import { useEdgeSelection } from './useEdgeSelection';
 
 export type Limits = {
   nodeLimit: number;

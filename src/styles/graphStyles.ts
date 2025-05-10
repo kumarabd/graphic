@@ -37,6 +37,15 @@ export const getDefaultStylesheet = (isDarkMode: boolean): Stylesheet[] => {
   };
 
   return [
+    // Filtered-out elements are hidden
+    {
+      selector: '.filtered-out',
+      style: {
+        'opacity': 0,
+        'visibility': 'hidden',
+        'display': 'none',
+      }
+    },
     {
       selector: 'node',
       style: {
@@ -54,7 +63,7 @@ export const getDefaultStylesheet = (isDarkMode: boolean): Stylesheet[] => {
         'text-max-width': '80px' as any,
         'border-width': '1px' as any,
         'border-color': 'transparent',
-        'transition-property': 'background-color, border-color, border-width',
+        'transition-property': 'background-color, border-color, border-width, opacity',
         'transition-duration': '200ms' as any,
       }
     },

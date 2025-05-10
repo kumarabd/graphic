@@ -1,54 +1,12 @@
-import React, { createContext, useContext, useReducer, useMemo, useState } from 'react';
-import { Node, Edge, LayoutType, GraphState, GraphAction, GraphProviderProps, KVFilter } from '../types';
+import React, { createContext, useContext, useMemo, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Node, Edge, LayoutType, GraphState, GraphProviderProps } from '../types';
 import { Stylesheet } from 'cytoscape';
+import { RootState } from '../store';
+import { setGraph, setFilters } from '../store';
 
-// Initial state
-const initialState: GraphState = {
-  nodes: [],
-  edges: [],
-  nodeFilters: [{key: 'type', values: ['subject', 'resource', 'subjectAttributes', 'resourceAttributes']}],
-  edgeFilters: [],
-  selectedLayout: 'fcose' as LayoutType,
-  stylesheet: []
-};
-
-// Create the reducer
-const graphReducer = (state: GraphState, action: GraphAction): GraphState => {
-  switch (action.type) {
-    case 'SET_NODES':
-      return { ...state, nodes: action.payload };
-    case 'SET_EDGES':
-      return { ...state, edges: action.payload };
-    case 'SET_LAYOUT':
-      return { ...state, selectedLayout: action.payload };
-    case 'SET_STYLESHEET':
-      return { ...state, stylesheet: action.payload };
-    case 'SET_NODE_FILTERS':
-      return { ...state, nodeFilters: action.payload };
-    case 'SET_EDGE_FILTERS':
-      return { ...state, edgeFilters: action.payload };
-    case 'SET_FILTERS':
-      // For backward compatibility, we'll update both filter types
-      return { 
-        ...state, 
-        nodeFilters: action.payload,
-        edgeFilters: action.payload
-      };
-    case 'UPDATE_GRAPH':
-      return { 
-        ...state, 
-        nodes: action.payload.nodes, 
-        edges: action.payload.edges 
-      };
-    default:
-      return state;
-  }
-};
-
-// Create the context
+// Create the context for UI-specific state that doesn't belong in Redux
 interface GraphContextType {
-  state: GraphState;
-  dispatch: React.Dispatch<GraphAction>;
   nodeElements: any[];
   edgeElements: any[];
   hasElements: boolean;
@@ -58,34 +16,33 @@ interface GraphContextType {
 
 const GraphContext = createContext<GraphContextType | undefined>(undefined);
 
-// Import GraphProviderProps from types
-
+// GraphProvider now focuses on UI transformations and local UI state
 export const GraphProvider: React.FC<GraphProviderProps> = ({
   children,
   initialNodes = [],
   initialEdges = [],
-  initialLayout = 'elk_layered' as LayoutType,
-  initialStylesheet = []
 }) => {
-  const [state, dispatch] = useReducer(graphReducer, {
-    ...initialState,
-    nodes: initialNodes,
-    edges: initialEdges,
-    selectedLayout: initialLayout,
-    stylesheet: initialStylesheet,
-    nodeFilters: [{key: 'type', values: ['subject', 'resource', 'subject_attribute', 'resource_attribute']}],
-    edgeFilters: []
-  } as GraphState);
+  // Get graph state from Redux
+  const graphState = useSelector((state: RootState) => state.graph);
+  const dispatch = useDispatch();
+  
+  // Initialize graph with provided data if available
+  React.useEffect(() => {
+    if (initialNodes.length > 0 || initialEdges.length > 0) {
+      dispatch(setGraph({ nodes: initialNodes, edges: initialEdges }));
+    }
+  }, []);
 
+  // Local UI state that doesn't need to be in Redux
   const [limits, setLimits] = useState({});
 
-  // Memoized derived state
-  const nodeElements = useMemo(() => state.nodes.map((node: Node) => ({
+  // Memoized derived state - transform Redux data for Cytoscape
+  const nodeElements = useMemo(() => graphState.nodes.map((node: Node) => ({
     group: 'nodes' as const,
     data: node.data
-  })), [state.nodes]);
+  })), [graphState.nodes]);
   
-  const edgeElements = useMemo(() => state.edges.map((edge: Edge) => ({
+  const edgeElements = useMemo(() => graphState.edges.map((edge: Edge) => ({
     group: 'edges' as const,
     data: {
       id: edge.data.id,
@@ -94,20 +51,18 @@ export const GraphProvider: React.FC<GraphProviderProps> = ({
       type: edge.data.type,
       label: edge.data.label
     }
-  })), [state.edges]);
+  })), [graphState.edges]);
 
   const hasElements = nodeElements.length > 0 || edgeElements.length > 0;
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
-    state,
-    dispatch,
     nodeElements,
     edgeElements,
     hasElements,
     limits,
     setLimits
-  }), [state, nodeElements, edgeElements, hasElements, limits, setLimits]);
+  }), [nodeElements, edgeElements, hasElements, limits]);
 
   return (
     <GraphContext.Provider value={contextValue}>
@@ -116,7 +71,7 @@ export const GraphProvider: React.FC<GraphProviderProps> = ({
   );
 };
 
-// Create a custom hook for using the context
+// Custom hook for using the context
 export const useGraphContext = (): GraphContextType => {
   const context = useContext(GraphContext);
   if (context === undefined) {

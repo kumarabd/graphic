@@ -86,7 +86,7 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, FetchGraphOptions
             }
           });
         } else {
-          console.warn('Missing node for relationship:', rel);
+          console.warn('Missing node for relationship:', rel, nodeIds.has(rel.from_id), nodeIds.has(rel.to_id));
         }
       });
 

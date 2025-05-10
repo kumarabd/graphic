@@ -1,7 +1,5 @@
 import { Stylesheet } from 'cytoscape';
 
-type StyleValue = string | number;
-
 export const getDefaultStylesheet = (isDarkMode: boolean): Stylesheet[] => {
   const colors = {
     background: isDarkMode ? '#1e1e1e' : '#ffffff',

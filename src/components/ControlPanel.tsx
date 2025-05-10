@@ -167,7 +167,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   
   // Apply all current filters directly using Cytoscape
   const applyAllFilters = useCallback(() => {
-    console.log('applyAllFilters filter:', nodeFilters, edgeFilters);
     // Apply node filters
     applyCytoscapeFilter('node', nodeFilters);
     
@@ -183,20 +182,31 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   // Get available values based on selected key
   const getAvailableValues = (): string[] => {
     let values: string[] = [];
-    if (newFilterKey === 'type') {
-      // Use allNodeTypes from our hook, or fall back to hardcoded values if not loaded yet
-      values = ['subject', 'resource', 'subject_attribute', 'resource_attribute'];
-    } else if (newFilterKey === 'name') {
-      // Use the pre-computed node labels
-      values = nodeElements.map(node => node.data.label);
+    
+    // Filter to only include nodes that have a parent
+    const childNodes = nodeElements.filter(node => node.data.parent);
+
+    let key = newFilterKey;
+    
+    if (key) {
+      if (key === 'name') {
+        key = 'label';
+      }
+      values = childNodes
+        .map(node => node.data[key])
+        .filter(value => value !== undefined && value !== null)
+        .map(value => String(value));
     }
 
     // Filter values based on search query if provided
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
-      values = values.filter(value => 
-        value.toLowerCase().includes(lowerQuery)
-      );
+      values = values.filter(value => {
+        // Handle null or undefined values
+        if (value === null || value === undefined) return false;
+        // Convert to string and check if it includes the query
+        return String(value).toLowerCase().includes(lowerQuery);
+      });
     }
 
     // Remove duplicates
@@ -402,133 +412,100 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                           </Select>
                         </FormControl>
                       )}
-                      
                       {newFilterKey && (
-                        <Autocomplete
-                          multiple
-                          size="small"
-                          options={getAvailableValues().filter(Boolean)} // Ensure no undefined/null values
-                          value={selectedValues.filter(Boolean)} // Ensure no undefined/null values
-                          onChange={(event, newValue) => {
-                            setSelectedValues(newValue.filter(Boolean)); // Filter out any undefined values
-                          }}
-                          inputValue={searchQuery}
-                          onInputChange={(event, newInputValue) => {
-                            setSearchQuery(newInputValue || ''); // Ensure newInputValue is never undefined
-                          }}
-                          disableCloseOnSelect
-                          renderInput={(params) => (
-                            <TextField 
-                              {...params} 
-                              label={newFilterKey.charAt(0).toUpperCase() + newFilterKey.slice(1) + 's'}
-                              placeholder={`start typing to search...`}
-                              helperText={`Select one or more node ${newFilterKey}s`}
-                              InputProps={{
-                                ...params.InputProps,
-                                startAdornment: (
-                                  <>
-                                    <InputAdornment position="start">
-                                      <SearchIcon fontSize="small" />
-                                    </InputAdornment>
-                                    {params.InputProps.startAdornment}
-                                  </>
-                                )
-                              }}
-                            />
-                          )}
-                          renderTags={(value, getTagProps) =>
-                            value.map((option, index) => (
-                              <Chip
-                                {...getTagProps({ index })}
-                                key={option}
-                                label={option}
-                                size="small"
-                              />
-                            ))
-                          }
-                          ListboxProps={{
-                            style: {
-                              maxHeight: '300px'
-                            }
-                          }}
-                          filterOptions={(options, state) => {
-                            // First filter by the search query
-                            const filtered = options.filter(option => 
-                              option.toLowerCase().includes(state.inputValue.toLowerCase())
-                            );
-                            
-                            // Then limit to visible count
-                            const limitedOptions = filtered.slice(0, visibleItemCount);
-                            
-                            // Add a "show more" option if there are more results
-                            if (filtered.length > visibleItemCount) {
-                              limitedOptions.push(`Show more (${filtered.length - visibleItemCount} more)`);
-                            }
-                            
-                            return limitedOptions;
-                          }}
-                          isOptionEqualToValue={(option, value) => {
-                            // Skip comparison for "Show more" option
-                            if (option.startsWith('Show more')) {
-                              return false;
-                            }
-                            // Simple string comparison
-                            return option === value;
-                          }}
-                          getOptionDisabled={(option) => option.startsWith('Show more')}
-                          onClose={() => setVisibleItemCount(20)} // Reset pagination when closing
-                          onOpen={() => setVisibleItemCount(20)} // Reset pagination when opening
-                          getOptionLabel={(option) => option}
-                          openOnFocus
-                          componentsProps={{
-                            paper: {
-                              sx: {
-                                '& .MuiAutocomplete-listbox': {
-                                  maxHeight: '300px',
-                                }
-                              }
-                            }
-                          }}
-                          renderOption={(props, option) => {
-                            const { key, ...otherProps } = props;
-                            // Handle "Show more" option
-                            if (option.startsWith('Show more')) {
-                              return (
-                                <Box key={key} component="li" {...otherProps}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleShowMore();
-                                  }}
+                        <Box>
+                          {/* Search input */}
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label={newFilterKey.charAt(0).toUpperCase() + newFilterKey.slice(1) + 's'}
+                            placeholder="Start typing to search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                              )
+                            }}
+                            helperText={`Select one or more node ${newFilterKey}s`}
+                          />
+                          
+                          {/* Options list */}
+                          <Paper 
+                            variant="outlined" 
+                            sx={{ 
+                              mt: 1, 
+                              maxHeight: '200px', 
+                              overflow: 'auto',
+                              border: `1px solid ${theme.palette.divider}`
+                            }}
+                          >
+                            <List dense component="div" role="list">
+                              {getAvailableValues()
+                                .filter(Boolean)
+                                .filter(option => {
+                                  if (!searchQuery) return true;
+                                  return option.toLowerCase().includes(searchQuery.toLowerCase());
+                                })
+                                .slice(0, visibleItemCount)
+                                .map((option) => {
+                                  const labelId = `checkbox-list-label-${option}`;
+                                  const isSelected = selectedValues.includes(option);
+                                  
+                                  return (
+                                    <ListItem
+                                      key={option}
+                                      dense
+                                      onClick={() => {
+                                        // Toggle selection
+                                        if (isSelected) {
+                                          setSelectedValues(selectedValues.filter(value => value !== option));
+                                        } else {
+                                          setSelectedValues([...selectedValues, option]);
+                                        }
+                                      }}
+                                      sx={{
+                                        cursor: 'pointer',
+                                        bgcolor: isSelected ? theme.palette.action.selected : 'transparent',
+                                        '&:hover': {
+                                          bgcolor: theme.palette.action.hover
+                                        }
+                                      }}
+                                    >
+                                      <Checkbox
+                                        edge="start"
+                                        checked={isSelected}
+                                        tabIndex={-1}
+                                        disableRipple
+                                        inputProps={{ 'aria-labelledby': labelId }}
+                                        size="small"
+                                      />
+                                      <ListItemText id={labelId} primary={option} />
+                                    </ListItem>
+                                  );
+                                })}
+                                
+                              {/* Show more button if needed */}
+                              {getAvailableValues().filter(Boolean).length > visibleItemCount && (
+                                <ListItem 
+                                  onClick={handleShowMore}
                                   sx={{ 
                                     justifyContent: 'center',
                                     color: theme.palette.primary.main,
                                     borderTop: `1px dashed ${theme.palette.divider}`,
-                                    cursor: 'pointer',
-                                    py: 1
+                                    cursor: 'pointer'
                                   }}
                                 >
                                   <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
-                                    {option} <KeyboardArrowDownIcon fontSize="small" sx={{ ml: 0.5 }} />
+                                    Show more <KeyboardArrowDownIcon fontSize="small" sx={{ ml: 0.5 }} />
                                   </Typography>
-                                </Box>
-                              );
-                            }
-                            
-                            // Regular option with correct selected state check
-                            return (
-                              <li key={key} {...otherProps}>
-                                <Checkbox
-                                  icon={<CheckIcon style={{ visibility: 'hidden' }} />}
-                                  checkedIcon={<CheckIcon />}
-                                  style={{ marginRight: 8 }}
-                                  checked={selectedValues.includes(option)}
-                                />
-                                {option}
-                              </li>
-                            );
-                          }}
-                        />
+                                </ListItem>
+                              )}
+                            </List>
+                          </Paper>
+                        </Box>
                       )}
                       
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>

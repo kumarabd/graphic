@@ -74,6 +74,7 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, FetchGraphOptions
       });
 
       // Process relationships as edges
+      let uniqueEdges = new Set<string>();
       edgesData.relationships.forEach((rel: any) => {
         if (nodeIds.has(rel.from_id) && nodeIds.has(rel.to_id)) {
           edges.push({
@@ -87,8 +88,12 @@ export const fetchGraphDataThunk = createAsyncThunk<GraphData, FetchGraphOptions
           });
         } else {
           console.warn('Missing node for relationship:', rel, nodeIds.has(rel.from_id), nodeIds.has(rel.to_id));
+          uniqueEdges.add(rel.to_id);
+          uniqueEdges.add(rel.from_id);
         }
       });
+
+      console.log(uniqueEdges);
 
       return { nodes, edges };
     } catch (error) {

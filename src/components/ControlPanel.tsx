@@ -40,6 +40,8 @@ import { useNodeSelection } from '../hooks/useNodeSelection';
 import { useEdgeSelection } from '../hooks/useEdgeSelection';
 import { useLayoutSelection } from '../hooks/useLayout';
 import { useLimits } from '../hooks/useLimits';
+import { useFilterKeys } from '../hooks/useFilterKeys';
+import { useFilterValues } from '../hooks/useFilterValues';
 import { KVFilter, LayoutType } from '../types';
 import SyncIcon from '@mui/icons-material/Sync';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -60,6 +62,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   const { nodeElements, refreshNodes } = useNodeSelection();
   const { edgeElements, refreshEdges } = useEdgeSelection();
   const { selectedLayout, setSelectedLayout, layoutOptions } = useLayoutSelection();
+  const { filterKeys, refreshFilterKeys } = useFilterKeys();
+  const { getFilterValues } = useFilterValues();
   
   // State for pagination and search in the filter dropdown
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,45 +178,88 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     applyCytoscapeFilter('edge', edgeFilters);
   }, [applyCytoscapeFilter, nodeFilters, edgeFilters]);
   
-  // Apply filters once on mount
+  // Apply filters and fetch filter keys once on mount
   useEffect(() => {
+    refreshFilterKeys();
     applyAllFilters();
   }, []);
 
-  // Get available values based on selected key
-  const getAvailableValues = (): string[] => {
-    let values: string[] = [];
-    
-    // Filter to only include nodes that have a parent
-    const childNodes = nodeElements.filter(node => node.data.parent);
-
-    let key = newFilterKey;
-    
-    if (key) {
-      if (key === 'name') {
-        key = 'label';
-      }
-      values = childNodes
-        .map(node => node.data[key])
-        .filter(value => value !== undefined && value !== null)
-        .map(value => String(value));
+  // Get available filter keys, either from Redux store or fallback to defaults
+  const getAvailableKeys = (): string[] => {
+    // If we have filter keys from the backend, use them
+    if (filterKeys && filterKeys.length > 0) {
+      return filterKeys;
     }
-
+    // Otherwise, use default keys
+    return ['type', 'label'];
+  }
+  
+  // State to store the available values for the current filter key
+  const [availableValues, setAvailableValues] = useState<string[]>([]);
+  const [valuesLoading, setValuesLoading] = useState(false);
+  
+  // Fetch available values when filter key changes
+  useEffect(() => {
+    const fetchValues = async () => {
+      if (!newFilterKey) {
+        setAvailableValues([]);
+        return;
+      }
+      
+      setValuesLoading(true);
+      try {
+        let values: string[] = [];
+        let key = newFilterKey;
+        
+        // Handle name/label mapping
+        if (key === 'name') {
+          key = 'label';
+        }
+        
+        // For type, get values from node elements
+        if (key === 'type') {
+          const childNodes = nodeElements.filter(node => node.data.parent);
+          values = childNodes
+            .map(node => node.data[key])
+            .filter(value => value !== undefined && value !== null)
+            .map(value => String(value));
+          
+          // Remove duplicates
+          values = Array.from(new Set(values));
+        } else {
+          // For other keys, fetch from API
+          values = await getFilterValues(key);
+        }
+        
+        setAvailableValues(values);
+      } catch (error) {
+        console.error('Error fetching filter values:', error);
+        setAvailableValues([]);
+      } finally {
+        setValuesLoading(false);
+      }
+    };
+    
+    fetchValues();
+  }, [newFilterKey, nodeElements, getFilterValues]);
+  
+  // Get available values based on selected key and search query
+  const getAvailableValues = (): string[] => {
+    // If no values are available yet, return empty array
+    if (valuesLoading || availableValues.length === 0) {
+      return [];
+    }
+    
     // Filter values based on search query if provided
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
-      values = values.filter(value => {
-        // Handle null or undefined values
+      return availableValues.filter(value => {
         if (value === null || value === undefined) return false;
-        // Convert to string and check if it includes the query
         return String(value).toLowerCase().includes(lowerQuery);
       });
     }
-
-    // Remove duplicates
-    const uniquevalues: string[] = Array.from(new Set(values));
     
-    return uniquevalues;
+    return availableValues;
   };
   
   // Handle showing more items
@@ -299,31 +346,22 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                   <Typography variant="subtitle2" sx={{ mb: 1, color: theme.palette.text.secondary, fontWeight: 500 }}>
                     Filter by:
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                    <Chip 
-                      label="Type" 
-                      clickable
-                      onClick={() => {
-                        setNewFilterKey('type');
-                        setFilterFormVisible(true);
-                      }}
-                      color={nodeFilters.some(f => f.key === 'type') ? 'primary' : 'default'}
-                      size="small"
-                      variant={nodeFilters.some(f => f.key === 'type') ? 'filled' : 'outlined'}
-                      sx={{ borderRadius: '4px' }}
-                    />
-                    <Chip 
-                      label="Name" 
-                      clickable
-                      onClick={() => {
-                        setNewFilterKey('name');
-                        setFilterFormVisible(true);
-                      }}
-                      color={nodeFilters.some(f => f.key === 'name') ? 'primary' : 'default'}
-                      size="small"
-                      variant={nodeFilters.some(f => f.key === 'name') ? 'filled' : 'outlined'}
-                      sx={{ borderRadius: '4px' }}
-                    />
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                    {getAvailableKeys().map((key) => (
+                      <Chip 
+                        key={key}
+                        label={key.charAt(0).toUpperCase() + key.slice(1)} 
+                        clickable
+                        onClick={() => {
+                          setNewFilterKey(key);
+                          setFilterFormVisible(true);
+                        }}
+                        color={nodeFilters.some(f => f.key === key) ? 'primary' : 'default'}
+                        size="small"
+                        variant={nodeFilters.some(f => f.key === key) ? 'filled' : 'outlined'}
+                        sx={{ borderRadius: '4px' }}
+                      />
+                    ))}
                   </Box>
                 </Box>
                 
@@ -407,8 +445,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                             label="Select Filter Type"
                             onChange={(e) => handleKeyChange(e.target.value as string)}
                           >
-                            <MenuItem value="type">Node Type</MenuItem>
-                            <MenuItem value="name">Node Name</MenuItem>
+                            {getAvailableKeys().map((key) => (
+                              <MenuItem value={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</MenuItem>
+                            ))}
                           </Select>
                         </FormControl>
                       )}

@@ -22,18 +22,18 @@ export const useNodeSelection = () => {
   // Function to refresh node data from the API
   const refreshNodes = useCallback(async () => {
     try {
-      console.log('Refreshing nodes from API...');
+      console.log('Refreshing graph data (nodes)...');
       const resultAction = await dispatch(fetchGraphDataThunk());
       
       if (resultAction.type.endsWith('/fulfilled')) {
         // Safely unwrap the result
         const payload = unwrapResult(resultAction);
-        console.log('Nodes refreshed successfully');
+        console.log('Graph data (nodes) refreshed successfully');
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Error refreshing nodes:', error);
+      console.error('Error refreshing graph data (nodes):', error);
       return false;
     }
   }, [dispatch]);

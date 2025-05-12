@@ -68,6 +68,7 @@ export type LayoutType =
 export interface GraphState {
   nodes: Node[];
   edges: Edge[];
+  filterKeys: string[];
   filters: Filters;
   loading: boolean;
   error: string | null;

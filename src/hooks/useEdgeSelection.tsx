@@ -22,18 +22,18 @@ export const useEdgeSelection = () => {
   // Function to refresh edge data from the API
   const refreshEdges = useCallback(async () => {
     try {
-      console.log('Refreshing edges from API...');
+      console.log('Refreshing graph data (edges)...');
       const resultAction = await dispatch(fetchGraphDataThunk());
       
       if (resultAction.type.endsWith('/fulfilled')) {
         // Safely unwrap the result
         const payload = unwrapResult(resultAction);
-        console.log('Edges refreshed successfully');
+        console.log('Graph data (edges) refreshed successfully');
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Error refreshing edges:', error);
+      console.error('Error refreshing graph data (edges):', error);
       return false;
     }
   }, [dispatch]);

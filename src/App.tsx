@@ -6,25 +6,16 @@ import Box from '@mui/material/Box';
 import { Header } from './components/Header';
 import { ControlPanel } from './components/ControlPanel';
 import { GraphView } from './components/GraphView';
-import { RootState, AppDispatch } from './store';
-import { Node, Edge, LayoutType } from './types';
-import { Stylesheet } from 'cytoscape';
-import { fetchGraphDataThunk } from './fetchGraphData';
+import { RootState } from './store';
+import { LayoutType } from './types';
 import { GraphProvider } from './context/GraphContext';
 import { CytoscapeProvider } from './context/CytoscapeContext';
 import { getDefaultStylesheet } from './styles/graphStyles';
 
 export default function App() {
-  const dispatch = useDispatch<AppDispatch>();
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
   const [currentLayout, setCurrentLayout] = useState<LayoutType>('elk_layered');
-  const { loading } = useSelector((state: RootState) => state.graph);
-
-  // Fetch data on initial render
-  useEffect(() => {
-    dispatch(fetchGraphDataThunk());
-  }, [dispatch]);
 
   const toggleTheme = () => {
     setMode(prevMode => prevMode === 'light' ? 'dark' : 'light');

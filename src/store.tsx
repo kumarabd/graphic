@@ -1,5 +1,5 @@
 import { configureStore, createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
-import { fetchGraphDataThunk } from './fetchGraphData';
+import { fetchGraphDataThunk, fetchNodeDataThunk, fetchEdgeDataThunk, fetchFilterKeysThunk } from './fetchGraphData';
 import { Node, Edge, Filters, GraphState, LayoutType } from './types';
 
 // Re-export types for backward compatibility
@@ -11,6 +11,7 @@ const initialState: GraphState = {
   edges: [],
   loading: false,
   error: null,
+  filterKeys: [],
   filters: {
     node: {
       filter: [],
@@ -46,6 +47,7 @@ const graphSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Combined graph data thunk cases
       .addCase(fetchGraphDataThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -57,7 +59,41 @@ const graphSlice = createSlice({
       })
       .addCase(fetchGraphDataThunk.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'An error occurred';
+        state.error = action.error.message || 'An error occurred fetching graph data';
+      })
+      
+      // Node data thunk cases (for backward compatibility)
+      .addCase(fetchNodeDataThunk.pending, (state) => {
+        // We don't set loading here since it's handled by fetchGraphDataThunk
+      })
+      .addCase(fetchNodeDataThunk.fulfilled, (state, action) => {
+        // Nodes are already updated by fetchGraphDataThunk
+      })
+      .addCase(fetchNodeDataThunk.rejected, (state, action) => {
+        state.error = action.error.message || 'An error occurred fetching nodes';
+      })
+      
+      // Edge data thunk cases (for backward compatibility)
+      .addCase(fetchEdgeDataThunk.pending, (state) => {
+        // We don't set loading here since it's handled by fetchGraphDataThunk
+      })
+      .addCase(fetchEdgeDataThunk.fulfilled, (state, action) => {
+        // Edges are already updated by fetchGraphDataThunk
+      })
+      .addCase(fetchEdgeDataThunk.rejected, (state, action) => {
+        state.error = action.error.message || 'An error occurred fetching edges';
+      })
+      
+      // Filter keys thunk cases
+      .addCase(fetchFilterKeysThunk.pending, (state) => {
+        // We don't set loading to true here to avoid blocking the UI
+        state.error = null;
+      })
+      .addCase(fetchFilterKeysThunk.fulfilled, (state, action) => {
+        state.filterKeys = action.payload.filterKeys;
+      })
+      .addCase(fetchFilterKeysThunk.rejected, (state, action) => {
+        state.error = action.error.message || 'An error occurred fetching filter keys';
       });
   },
 });

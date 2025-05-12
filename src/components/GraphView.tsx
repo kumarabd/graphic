@@ -8,9 +8,9 @@ import setupCy from '../setupCy';
 import { useLayoutSelection } from '../hooks/useLayout';
 import { useNodeSelection } from '../hooks/useNodeSelection';
 import { useEdgeSelection } from '../hooks/useEdgeSelection';
+import { useFilterKeys } from '../hooks/useFilterKeys';
 import { useCytoscape } from '../context/CytoscapeContext';
 import { GraphViewProps, LayoutType } from '../types';
-
 // Using GraphViewProps from types
 
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
@@ -42,29 +42,10 @@ export const GraphView: React.FC<GraphViewProps> = memo(({ stylesheet, selectedL
   const prevElementsRef = useRef<any[]>([]);
   const { getLayoutConfig } = useLayoutSelection();
   
-
-  
   // Fetch initial data when component mounts
   useEffect(() => {
-    const fetchInitialData = async () => {
-      console.log('Fetching initial graph data...');
-      try {
-        const [nodesResult, edgesResult] = await Promise.all([
-          refreshNodes(),
-          refreshEdges()
-        ]);
-        
-        if (nodesResult && edgesResult) {
-          console.log('Initial graph data loaded successfully');
-        } else {
-          console.warn('Some initial graph data could not be loaded');
-        }
-      } catch (error) {
-        console.error('Error loading initial graph data:', error);
-      }
-    };
-    
-    fetchInitialData();
+    refreshNodes();
+    refreshEdges();
   }, [refreshNodes, refreshEdges]);
   
   // Initialize Cytoscape extensions

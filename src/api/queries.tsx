@@ -51,13 +51,42 @@ export const getEdgesQuery = (state: RootState, skipFilters: boolean = false) =>
  * @param state The Redux state
  * @param skipFilters If true, ignores filters and returns all edges
  */
-export const getPropertiesQuery = (state: RootState, skipFilters: boolean = false) => {
+export const getPropertiesQuery = () => {
   return gql`
-    query GetEdges {
+    query GetProperties {
       properties(
         limit: 1000, 
       ) {
         key
+        value
+      }
+    }
+  `;
+};
+
+/**
+ * Get query for fetching properties based on filters
+ * @param state The Redux state
+ * @param skipFilters If true, ignores filters and returns all edges
+ */
+export const getFilterKeysQuery = () => {
+  return gql`
+    query GetFilterKeys {
+      properties {
+        key
+      }
+    }
+  `;
+};
+
+/**
+ * Get query for fetching property values based on a key
+ * @param key The property key to filter by
+ */
+export const getFilterValuesQuery = (key: string) => {
+  return gql`
+    query GetFilterValues($key: String!) {
+      properties(where: {key: {equals: "${key}"}}) {
         value
       }
     }

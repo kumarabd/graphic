@@ -89,7 +89,11 @@ export const getFilterKeysQuery = () => {
 export const getFilterValuesQuery = (key: string) => {
   return gql`
     query GetFilterValues($key: String!) {
-      properties(where: {key: {equals: "${key}"}}) {
+      properties(
+        distinctOn: "value",
+        limit: 1000,
+        where: {key: {equals: "${key}"}}
+      ) {
         value
       }
     }

@@ -172,10 +172,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   // Apply all current filters directly using Cytoscape
   const applyAllFilters = useCallback(() => {
     // Apply node filters
-    applyCytoscapeFilter('node', nodeFilters);
+    applyCytoscapeFilter('filterNodesByType', nodeFilters);
     
     // Apply edge filters
-    applyCytoscapeFilter('edge', edgeFilters);
+    applyCytoscapeFilter('filterEdgesByType', edgeFilters);
   }, [applyCytoscapeFilter, nodeFilters, edgeFilters]);
   
   // Apply filters and fetch filter keys once on mount
@@ -205,32 +205,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
         setAvailableValues([]);
         return;
       }
-      
       setValuesLoading(true);
       try {
         let values: string[] = [];
         let key = newFilterKey;
-        
-        // Handle name/label mapping
-        if (key === 'name') {
-          key = 'label';
-        }
-        
-        // For type, get values from node elements
         if (key === 'type') {
           const childNodes = nodeElements.filter(node => node.data.parent);
           values = childNodes
             .map(node => node.data[key])
             .filter(value => value !== undefined && value !== null)
             .map(value => String(value));
-          
-          // Remove duplicates
-          values = Array.from(new Set(values));
         } else {
-          // For other keys, fetch from API
           values = await getFilterValues(key);
         }
-        
+        // Remove duplicates
+        values = Array.from(new Set(values));
         setAvailableValues(values);
       } catch (error) {
         console.error('Error fetching filter values:', error);
@@ -239,7 +228,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
         setValuesLoading(false);
       }
     };
-    
     fetchValues();
   }, [newFilterKey, nodeElements, getFilterValues]);
   
@@ -252,7 +240,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     
     // Filter values based on search query if provided
     if (searchQuery) {
-      const lowerQuery = searchQuery.toLowerCase();
+      let lowerQuery = searchQuery.toLowerCase();
+      if (lowerQuery === "name") {
+        lowerQuery = "label"
+      }
       return availableValues.filter(value => {
         if (value === null || value === undefined) return false;
         return String(value).toLowerCase().includes(lowerQuery);
@@ -350,7 +341,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                     {getAvailableKeys().map((key) => (
                       <Chip 
                         key={key}
-                        label={key.charAt(0).toUpperCase() + key.slice(1)} 
+                        label={key} 
                         clickable
                         onClick={() => {
                           setNewFilterKey(key);

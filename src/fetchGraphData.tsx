@@ -160,7 +160,6 @@ export const fetchFilterKeysThunk = createAsyncThunk<FilterKeysData, void, { sta
       // Extract unique keys from properties
       const keys = data.properties ? data.properties.map((prop: any) => prop.key) : [];
       keys.push('type');
-      keys.push('name');
       const uniqueKeys = Array.from(new Set(keys)) as string[];
       
       return { filterKeys: uniqueKeys };

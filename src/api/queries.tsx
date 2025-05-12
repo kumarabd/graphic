@@ -55,7 +55,7 @@ export const getPropertiesQuery = () => {
   return gql`
     query GetProperties {
       properties(
-        limit: 1000, 
+        limit: 1000,
       ) {
         key
         value
@@ -72,7 +72,10 @@ export const getPropertiesQuery = () => {
 export const getFilterKeysQuery = () => {
   return gql`
     query GetFilterKeys {
-      properties {
+      properties(
+        distinctOn: "key",
+        limit: 1000,
+      ) {
         key
       }
     }

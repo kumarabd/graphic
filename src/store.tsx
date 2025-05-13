@@ -14,11 +14,11 @@ const initialState: GraphState = {
   filterKeys: [],
   filters: {
     node: {
-      filter: [],
+      filter: new Map<string, string[]>(),
       limit: 5000
     },
     edge: {
-      filter: [],
+      filter: new Map<string, string[]>(),
       limit: 5000
     }
   },

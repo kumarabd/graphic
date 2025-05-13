@@ -111,7 +111,7 @@ export const getPropertyIdsQuery = (key: string, values: string[]) => {
   } else if (values.length === 1) {
     query = '{key: {equals: "'+key+'"}, value: {equals: "'+values[0]+'"}}'
   } else {
-    const valuesString = values.map(value => '{value: {equals: "'+value+'"}}').join(', ');
+    const valuesString = values.map(value => '{equals: "'+value+'"}').join(', ');
     query = '{key: {equals: "'+key+'"}, value: {or: ['+valuesString+']}}'
   }    
   console.log(query);

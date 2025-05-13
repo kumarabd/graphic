@@ -79,13 +79,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
     setFilterFormVisible,
     newFilterKey,
     setNewFilterKey,
-    selectedValues,
-    setSelectedValues,
     pendingFilter,
     setPendingFilter,
     resetFilterForm,
     // Using the direct Cytoscape filtering methods
-    applyCytoscapeFilter
+    applyCytoscapeFilter,
   } = useFilter();
   // Limits hook - now with built-in change tracking
   const { limits, setLimits, hasLimitChanges, applyLimitChanges } = useLimits();
@@ -142,27 +140,28 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   const handleKeyChange = (key: string) => {
     setNewFilterKey(key);
     
-    // Check if there are existing filters for this key and populate selectedValues
-    const existingFilter = nodeFilters.find(filter => filter.key === key);
-    if (existingFilter) {
-      setSelectedValues([...existingFilter.values]);
-    } else {
-      setSelectedValues([]);
-    }
-    
+    // We'll initialize the availableValues Map in the useEffect that fetches values
+    // This will ensure that when values are loaded, we mark the existing ones as selected
     setPendingFilter(true);
   };
 
-  const handleApplyFilter = () => {
-    if (newFilterKey && selectedValues.length > 0) {
+  const handleApplyFilter = async () => {
+    if (!newFilterKey) return;
+    
+    // Get selected values from the availableValues Map
+    const selectedValues = Array.from(availableValues.entries())
+      .filter(([_, isSelected]) => isSelected)
+      .map(([value]) => value);
+    
+    if (selectedValues.length > 0) {
       // Add the filter directly using the hook
-      addFilter(newFilterKey, selectedValues, 'filterNodesByType');
+      await addFilter(newFilterKey, selectedValues, 'filterNodesByType');
     }
   };
   
-  const handleRemoveFilter = (index: number) => {
-    // Call the removeFilter function directly with the index
-    removeFilter(index, 'filterNodesByType');
+  const handleRemoveFilter = (key: string) => {
+    // Call the removeFilter function directly with the key
+    removeFilter(key, 'filterNodesByType');
   };
   
   const handleCancelFilter = () => {
@@ -170,12 +169,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   };
   
   // Apply all current filters directly using Cytoscape
-  const applyAllFilters = useCallback(() => {
+  const applyAllFilters = useCallback(async () => {
     // Apply node filters
-    applyCytoscapeFilter('filterNodesByType', nodeFilters);
+    await applyCytoscapeFilter('filterNodesByType', nodeFilters);
     
     // Apply edge filters
-    applyCytoscapeFilter('filterEdgesByType', edgeFilters);
+    await applyCytoscapeFilter('filterEdgesByType', edgeFilters);
   }, [applyCytoscapeFilter, nodeFilters, edgeFilters]);
   
   // Apply filters and fetch filter keys once on mount
@@ -195,14 +194,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   }
   
   // State to store the available values for the current filter key
-  const [availableValues, setAvailableValues] = useState<string[]>([]);
+  const [availableValues, setAvailableValues] = useState<Map<string, boolean>>(new Map());
   const [valuesLoading, setValuesLoading] = useState(false);
   
   // Fetch available values when filter key changes
   useEffect(() => {
     const fetchValues = async () => {
       if (!newFilterKey) {
-        setAvailableValues([]);
+        setAvailableValues(new Map());
         return;
       }
       setValuesLoading(true);
@@ -220,10 +219,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
         }
         // Remove duplicates
         values = Array.from(new Set(values));
-        setAvailableValues(values);
+        
+        // Initialize the Map with values marked as selected if they're in the existing filter
+        const valuesMap = new Map<string, boolean>();
+        const existingFilter = nodeFilters.get(newFilterKey);
+        
+        values.forEach(value => {
+          // Mark as selected if it exists in the current filter for this key
+          valuesMap.set(value, existingFilter ? existingFilter.includes(value) : false);
+        });
+        
+        setAvailableValues(valuesMap);
       } catch (error) {
         console.error('Error fetching filter values:', error);
-        setAvailableValues([]);
+        setAvailableValues(new Map());
       } finally {
         setValuesLoading(false);
       }
@@ -234,7 +243,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
   // Get available values based on selected key and search query
   const getAvailableValues = (): string[] => {
     // If no values are available yet, return empty array
-    if (valuesLoading || availableValues.length === 0) {
+    if (valuesLoading || availableValues.size === 0) {
       return [];
     }
     
@@ -244,13 +253,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
       if (lowerQuery === "name") {
         lowerQuery = "label"
       }
-      return availableValues.filter(value => {
+      return Array.from(availableValues.keys()).filter(value => {
         if (value === null || value === undefined) return false;
         return String(value).toLowerCase().includes(lowerQuery);
       });
     }
     
-    return availableValues;
+    return Array.from(availableValues.keys());
   };
   
   // Handle showing more items
@@ -347,9 +356,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                           setNewFilterKey(key);
                           setFilterFormVisible(true);
                         }}
-                        color={nodeFilters.some(f => f.key === key) ? 'primary' : 'default'}
+                        color={nodeFilters.has(key) ? 'primary' : 'default'}
                         size="small"
-                        variant={nodeFilters.some(f => f.key === key) ? 'filled' : 'outlined'}
+                        variant={nodeFilters.has(key) ? 'filled' : 'outlined'}
                         sx={{ borderRadius: '4px' }}
                       />
                     ))}
@@ -361,29 +370,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                   <Typography variant="subtitle2" sx={{ mb: 1, color: theme.palette.text.secondary, fontWeight: 500 }}>
                     Active Filters:
                   </Typography>
-                  {nodeFilters.length > 0 ? (
+                  {nodeFilters.size > 0 ? (
                     <Box sx={{ 
                       p: 1.5, 
                       border: `1px solid ${theme.palette.divider}`,
                       borderRadius: 1,
                       backgroundColor: theme.palette.background.default
                     }}>
-                      {nodeFilters.map((filter: KVFilter, index: number) => (
-                        <Box key={index} sx={{ mb: index < nodeFilters.length - 1 ? 1 : 0 }}>
+                      {Array.from(nodeFilters.entries()).map(([key, values], index) => (
+                        <Box key={key} sx={{ mb: index < nodeFilters.size - 1 ? 1 : 0 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                             <Typography variant="body2" fontWeight={500} color="primary">
-                              {filter.key}
+                              {key}
                             </Typography>
                             <IconButton 
                               size="small" 
-                              onClick={() => handleRemoveFilter(index)}
+                              onClick={() => handleRemoveFilter(key)}
                               sx={{ p: 0.5 }}
                             >
                               <CloseIcon fontSize="small" color="error" />
                             </IconButton>
                           </Box>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {filter.values.map((value, valueIndex) => (
+                            {values.map((value, valueIndex) => (
                               <Chip
                                 key={valueIndex}
                                 label={value}
@@ -397,7 +406,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                               />
                             ))}
                           </Box>
-                          {index < nodeFilters.length - 1 && <Divider sx={{ my: 1 }} />}
+                          {index < nodeFilters.size - 1 && <Divider sx={{ my: 1 }} />}
                         </Box>
                       ))}
                     </Box>
@@ -482,19 +491,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                                 .slice(0, visibleItemCount)
                                 .map((option) => {
                                   const labelId = `checkbox-list-label-${option}`;
-                                  const isSelected = selectedValues.includes(option);
+                                  // Get selected state from availableValues Map
+                                  const isSelected = availableValues.get(option) || false;
                                   
                                   return (
                                     <ListItem
                                       key={option}
                                       dense
                                       onClick={() => {
-                                        // Toggle selection
-                                        if (isSelected) {
-                                          setSelectedValues(selectedValues.filter(value => value !== option));
-                                        } else {
-                                          setSelectedValues([...selectedValues, option]);
-                                        }
+                                        // Toggle selection in the Map
+                                        const newAvailableValues = new Map(availableValues);
+                                        const newIsSelected = !isSelected;
+                                        
+                                        // Update the Map
+                                        newAvailableValues.set(option, newIsSelected);
+                                        setAvailableValues(newAvailableValues);
                                       }}
                                       sx={{
                                         cursor: 'pointer',
@@ -553,7 +564,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onLayoutChange }) =>
                           variant="contained"
                           color="primary"
                           onClick={handleApplyFilter}
-                          disabled={!newFilterKey || selectedValues.length === 0}
+                          disabled={!newFilterKey || !Array.from(availableValues.values()).some(isSelected => isSelected)}
                           startIcon={<CheckIcon />}
                         >
                           Apply Filter

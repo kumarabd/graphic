@@ -20,7 +20,7 @@ export const useFilter = () => {
   
   // Get the Cytoscape instance directly from context each time
   // This ensures we always have the latest instance
-  const { setCyInstance, cyInstance, applyLayout, resetView } = useCytoscape();
+  const { cyInstance, applyLayout, resetView } = useCytoscape();
   
   // Extract node and edge filters from Redux state
   const nodeFilters = filters.node.filter;
@@ -31,12 +31,12 @@ export const useFilter = () => {
   const [newFilterKey, setNewFilterKey] = useState('');
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [pendingFilter, setPendingFilter] = useState(false);
-  
+
   /**
    * Apply a filter to the Cytoscape instance
    * This uses Cytoscape's selector query syntax for efficient filtering
    */
-  const applyCytoscapeFilterWithIDs = useCallback((actionKey: string, filters: string[]) => {
+  const applyCytoscapeFilter = useCallback(async (actionKey: string, filters: KVFilter) => {
     if (!cyInstance) {
       console.warn('Cytoscape instance not available for filtering');
       return;
@@ -47,7 +47,7 @@ export const useFilter = () => {
     console.log('Total edges:', cyInstance.edges().length);
     
     // If no filters, show everything
-    if (filters.length === 0) {
+    if (filters.size === 0) {
       cyInstance.elements().style('display', 'element');
       console.log('No filters to apply, showing all elements');
       return;
@@ -56,71 +56,39 @@ export const useFilter = () => {
     // First hide all elements
     cyInstance.nodes().style('display', 'none');
     
-    let nodesToShow = cyInstance.nodes();
     if (actionKey.includes('Node')) {
-      // Create a collection of nodes that match the filter IDs
-      const filteredNodes = filters.reduce((collection, id) => {
-        const node = cyInstance.getElementById(id);
-        return node.length > 0 ? collection.union(node) : collection;
-      }, cyInstance.collection());
-      
-      // Intersect with the current nodes
-      nodesToShow = nodesToShow.intersection(filteredNodes);
+      // Convert Map entries to array for compatibility
+      for (const [key, values] of Array.from(filters.entries())) {
+      if (key.toLowerCase() === 'label' || key.toLowerCase() === 'type') {
+          let selector = ``;
+          console.log("applying legacy filter")
+          values.forEach(value => {
+            if (selector.length > 0) {
+              selector = selector + ',';
+            }
+            selector = selector + `[${key} = "${value}"]`;
+          });
+          selector = `node${selector}`;
+          console.log('Using selector:', selector);
+          cyInstance.filter(selector).style('display', 'element');
+        } else {
+          console.log("applying filter from network")
+          // Fetch the list of property ids
+          const propertyIds = await fetchPropertyIds(key, values);
+          // Fetch the entity ids for the property ids
+          const entityIds = await fetchEntityIds(propertyIds);
+          entityIds.forEach(id => {
+            cyInstance.getElementById(id).style('display', 'element');
+          });
+        }
+      }     
     }
-    nodesToShow.forEach(node => {
-      node.style('display', 'element');
+    cyInstance.nodes().forEach(node => {
       if (node.data('parent')) {
-        cyInstance.nodes(`node[id = "${node.data('parent')}"]`).style('display', 'element');
+        node.parent().style('display', 'element');
       }
     });
-  }, [cyInstance, resetView]);
-  
-  /**
-   * Apply a filter to the Cytoscape instance
-   * This uses Cytoscape's selector query syntax for efficient filtering
-   */
-  const applyCytoscapeFilter = useCallback((actionKey: string, filters: KVFilter[]) => {
-    if (!cyInstance) {
-      console.warn('Cytoscape instance not available for filtering');
-      return;
-    }
-    
-    console.log('Applying filters:', filters);
-    console.log('Total nodes:', cyInstance.nodes().length);
-    console.log('Total edges:', cyInstance.edges().length);
-    
-    // If no filters, show everything
-    if (filters.length === 0) {
-      cyInstance.elements().style('display', 'element');
-      console.log('No filters to apply, showing all elements');
-      return;
-    }
-    
-    // First hide all elements
-    cyInstance.nodes().style('display', 'none');
-    
-    let nodesToShow = cyInstance.nodes();
-    if (actionKey.includes('Node')) {
-      filters.forEach(filter => {
-        let selector = ``;
-        filter.values.forEach(value => {
-          if (selector.length > 0) {
-            selector = selector + ',';
-          }
-          selector = selector + `[${filter.key} = "${value}"]`;
-        });
-        selector = `node${selector}`;
-        console.log('Using selector:', selector);
-        nodesToShow = nodesToShow.filter(selector);
-      });     
-    }
-    nodesToShow.forEach(node => {
-      node.style('display', 'element');
-      if (node.data('parent')) {
-        cyInstance.nodes(`node[id = "${node.data('parent')}"]`).style('display', 'element');
-      }
-    });
-  }, [cyInstance, resetView]);
+  }, [cyInstance]);
 
   /**
    * Add a new filter
@@ -128,20 +96,12 @@ export const useFilter = () => {
   const addFilter = useCallback(async (key: string, values: string[], actionKey: string) => {
     if (!key || values.length === 0) return;
     
-    // Create a new filter
-    const newFilter: KVFilter = { key, values };
-    if (key.toLowerCase() === 'label' || key.toLowerCase() === 'type') {
-      applyCytoscapeFilter(key, [...nodeFilters, newFilter]);
-    } else {
-      // Fetch the list of property ids
-      const propertyIds = await fetchPropertyIds(key, values);
-      // Fetch the entity ids for the property ids
-      const entityIds = await fetchEntityIds(propertyIds);
-      applyCytoscapeFilterWithIDs(key, entityIds);
-      // newFilter = { key, values };
-      // applyCytoscapeFilterWithIDs(key, [...nodeFilterIDs, newFilter]);
-      console.log("applying filter from network")
-    }
+    // Create a new Map with the existing filters plus the new one
+    const newNodeFilters = new Map(nodeFilters);
+    newNodeFilters.set(key, values);
+    
+    // Apply the filters using the new Map
+    await applyCytoscapeFilter(actionKey, newNodeFilters);
 
     // Store the update state of filter in Redux
     if (actionKey.includes('Node')) {
@@ -149,27 +109,37 @@ export const useFilter = () => {
         ...filters,
         node: {
           ...filters.node,
-          filter: [...nodeFilters, newFilter]
+          filter: newNodeFilters
         }
       }));
     } else if (actionKey.includes('Edge')) {
+      // Create a new Map for edge filters
+      const newEdgeFilters = new Map(edgeFilters);
+      newEdgeFilters.set(key, values);
+      
       dispatch(setFilters({
         ...filters,
         edge: {
           ...filters.edge,
-          filter: [...edgeFilters, newFilter]
+          filter: newEdgeFilters
         }
       }));
     } else {
+      // Create new Maps for both node and edge filters
+      const newNodeFilters = new Map(nodeFilters);
+      const newEdgeFilters = new Map(edgeFilters);
+      newNodeFilters.set(key, values);
+      newEdgeFilters.set(key, values);
+      
       dispatch(setFilters({
         ...filters,
         node: {
           ...filters.node,
-          filter: [...nodeFilters, newFilter]
+          filter: newNodeFilters
         },
         edge: {
           ...filters.edge,
-          filter: [...edgeFilters, newFilter]
+          filter: newEdgeFilters
         }
       }));
     }
@@ -181,29 +151,37 @@ export const useFilter = () => {
   /**
    * Remove a filter
    */
-  const removeFilter = useCallback((index: number, actionKey: string) => {
+  const removeFilter = useCallback(async (key: string, actionKey: string) => {
     if (actionKey.includes('Node')) {
-      const updatedFilters = nodeFilters.filter((_, i) => i !== index);
-      applyCytoscapeFilter('node', updatedFilters);
+      // Create a new Map without the filter to be removed
+      const newNodeFilters = new Map(nodeFilters);
+      newNodeFilters.delete(key);
+      
+      // Apply the updated filters
+      await applyCytoscapeFilter('node', newNodeFilters);
       
       // Update Redux store with the new filters
       dispatch(setFilters({
         ...filters,
         node: {
           ...filters.node,
-          filter: updatedFilters
+          filter: newNodeFilters
         }
       }));
     } else if (actionKey.includes('Edge')) {
-      const updatedFilters = edgeFilters.filter((_, i) => i !== index);
-      applyCytoscapeFilter('edge', updatedFilters);
+      // Create a new Map without the filter to be removed
+      const newEdgeFilters = new Map(edgeFilters);
+      newEdgeFilters.delete(key);
+      
+      // Apply the updated filters
+      await applyCytoscapeFilter('edge', newEdgeFilters);
       
       // Update Redux store with the new filters
       dispatch(setFilters({
         ...filters,
         edge: {
           ...filters.edge,
-          filter: updatedFilters
+          filter: newEdgeFilters
         }
       }));
     }
@@ -215,7 +193,6 @@ export const useFilter = () => {
   const resetFilterForm = useCallback(() => {
     setFilterFormVisible(false);
     setNewFilterKey('');
-    setSelectedValues([]);
     setPendingFilter(false);
   }, []);
   
@@ -229,8 +206,6 @@ export const useFilter = () => {
     setFilterFormVisible,
     newFilterKey,
     setNewFilterKey,
-    selectedValues,
-    setSelectedValues,
     pendingFilter,
     setPendingFilter,
     
@@ -240,6 +215,6 @@ export const useFilter = () => {
     resetFilterForm,
     
     // Cytoscape integration
-    applyCytoscapeFilter
+    applyCytoscapeFilter,
   };
 };

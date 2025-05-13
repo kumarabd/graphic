@@ -27,20 +27,17 @@ export interface Edge {
 /**
  * Types of filters that can be applied
  */
-export interface KVFilter {
-  key: string;
-  values: string[];
-}
+export type KVFilter = Map<string, string[]>;
 
 export type FilterType = 'node' | 'edge' | 'both';
 
 export interface Filters {
   node: {
-    filter: KVFilter[];
+    filter: KVFilter;
     limit: number;
   }
   edge: {
-    filter: KVFilter[];
+    filter: KVFilter;
     limit: number;
   }
 }
@@ -85,9 +82,9 @@ export interface RootState {
 export type GraphAction = 
   | { type: 'SET_NODES'; payload: Node[] }
   | { type: 'SET_EDGES'; payload: Edge[] }
-  | { type: 'SET_FILTERS'; payload: KVFilter[] }
-  | { type: 'SET_NODE_FILTERS'; payload: KVFilter[] }
-  | { type: 'SET_EDGE_FILTERS'; payload: KVFilter[] }
+  | { type: 'SET_FILTERS'; payload: Filters }
+  | { type: 'SET_NODE_FILTERS'; payload: KVFilter }
+  | { type: 'SET_EDGE_FILTERS'; payload: KVFilter }
   | { type: 'SET_LAYOUT'; payload: LayoutType }
   | { type: 'SET_STYLESHEET'; payload: Stylesheet[] }
   | { type: 'UPDATE_GRAPH'; payload: { nodes: Node[], edges: Edge[] } };

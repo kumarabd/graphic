@@ -1,7 +1,7 @@
 // fetchGraphData.tsx
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { client } from './api/client';
-import { getNodesQuery, getEdgesQuery, getFilterKeysQuery, getFilterValuesQuery } from './api/queries';
+import { getNodesQuery, getEdgesQuery, getFilterKeysQuery, getFilterValuesQuery, getPropertyIdsQuery, getEntityIdsQuery } from './api/queries';
 import { RootState, Node, Edge } from './store';
 
 interface GraphData {
@@ -195,3 +195,48 @@ export const fetchFilterValues = async (key: string): Promise<string[]> => {
     return [];
   }
 };
+
+export const fetchPropertyIds = async (key: string, values: string[]): Promise<string[]> => {
+  try {
+    // Fetch property IDs
+    const response = await client.query({
+      query: getPropertyIdsQuery(key, values),
+      fetchPolicy: 'network-only'
+    });
+    
+    const data = response.data;
+    
+    // Extract unique IDs from properties
+    const ids = data.properties ? data.properties.map((prop: any) => prop.id) : [];
+    const uniqueIds = Array.from(new Set(ids)) as string[];
+    
+    return uniqueIds;
+  } catch (error) {
+    console.error('Error fetching property IDs:', error);
+    return [];
+  }
+};
+
+export const fetchEntityIds = async (propertyIds: string[]): Promise<string[]> => {
+  try {
+    // Fetch entity IDs
+    const response = await client.query({
+      query: getEntityIdsQuery(propertyIds),
+      fetchPolicy: 'network-only'
+    });
+    
+    const data = response.data;
+    
+    // Extract unique IDs from entities
+    let ids = data.subject_properties ? data.subject_properties.map((entity: any) => entity.subject_entity_id) : [];
+    ids = ids.concat(data.resource_properties ? data.resource_properties.map((entity: any) => entity.resource_entity_id) : []);
+    ids = ids.concat(data.attribute_properties ? data.attribute_properties.map((entity: any) => entity.attribute_entity_id) : []);
+    const uniqueIds = Array.from(new Set(ids)) as string[];
+    
+    return uniqueIds;
+  } catch (error) {
+    console.error('Error fetching entity IDs:', error);
+    return [];
+  }
+};
+  

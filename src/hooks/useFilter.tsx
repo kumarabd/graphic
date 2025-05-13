@@ -5,6 +5,7 @@ import { RootState, setFilters } from '../store';
 import cytoscape from 'cytoscape';
 import { FilterType } from '../types';
 import { useCytoscape } from '../context/CytoscapeContext';
+import { fetchPropertyIds, fetchEntityIds } from '../fetchGraphData';
 
 /**
  * Hook for managing and applying filters using Cytoscape's built-in filtering capabilities
@@ -30,6 +31,49 @@ export const useFilter = () => {
   const [newFilterKey, setNewFilterKey] = useState('');
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [pendingFilter, setPendingFilter] = useState(false);
+  
+  /**
+   * Apply a filter to the Cytoscape instance
+   * This uses Cytoscape's selector query syntax for efficient filtering
+   */
+  const applyCytoscapeFilterWithIDs = useCallback((actionKey: string, filters: string[]) => {
+    if (!cyInstance) {
+      console.warn('Cytoscape instance not available for filtering');
+      return;
+    }
+    
+    console.log('Applying filters:', filters);
+    console.log('Total nodes:', cyInstance.nodes().length);
+    console.log('Total edges:', cyInstance.edges().length);
+    
+    // If no filters, show everything
+    if (filters.length === 0) {
+      cyInstance.elements().style('display', 'element');
+      console.log('No filters to apply, showing all elements');
+      return;
+    }
+    
+    // First hide all elements
+    cyInstance.nodes().style('display', 'none');
+    
+    let nodesToShow = cyInstance.nodes();
+    if (actionKey.includes('Node')) {
+      // Create a collection of nodes that match the filter IDs
+      const filteredNodes = filters.reduce((collection, id) => {
+        const node = cyInstance.getElementById(id);
+        return node.length > 0 ? collection.union(node) : collection;
+      }, cyInstance.collection());
+      
+      // Intersect with the current nodes
+      nodesToShow = nodesToShow.intersection(filteredNodes);
+    }
+    nodesToShow.forEach(node => {
+      node.style('display', 'element');
+      if (node.data('parent')) {
+        cyInstance.nodes(`node[id = "${node.data('parent')}"]`).style('display', 'element');
+      }
+    });
+  }, [cyInstance, resetView]);
   
   /**
    * Apply a filter to the Cytoscape instance
@@ -81,7 +125,7 @@ export const useFilter = () => {
   /**
    * Add a new filter
    */
-  const addFilter = useCallback((key: string, values: string[], actionKey: string) => {
+  const addFilter = useCallback(async (key: string, values: string[], actionKey: string) => {
     if (!key || values.length === 0) return;
     
     // Create a new filter
@@ -89,6 +133,11 @@ export const useFilter = () => {
     if (key.toLowerCase() === 'label' || key.toLowerCase() === 'type') {
       applyCytoscapeFilter(key, [...nodeFilters, newFilter]);
     } else {
+      // Fetch the list of property ids
+      const propertyIds = await fetchPropertyIds(key, values);
+      // Fetch the entity ids for the property ids
+      const entityIds = await fetchEntityIds(propertyIds);
+      applyCytoscapeFilterWithIDs(key, entityIds);
       // newFilter = { key, values };
       // applyCytoscapeFilterWithIDs(key, [...nodeFilterIDs, newFilter]);
       console.log("applying filter from network")

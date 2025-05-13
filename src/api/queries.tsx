@@ -99,3 +99,72 @@ export const getFilterValuesQuery = (key: string) => {
     }
   `;
 };
+
+/**
+ * Get query for fetching property values based on a key
+ * @param key The property key to filter by
+ */
+export const getPropertyIdsQuery = (key: string, values: string[]) => {
+  let query = '';
+  if (values.length === 0) {
+    query = '{key: {equals: "'+key+'"}}'
+  } else if (values.length === 1) {
+    query = '{key: {equals: "'+key+'"}, value: {equals: "'+values[0]+'"}}'
+  } else {
+    const valuesString = values.map(value => '{value: {equals: "'+value+'"}}').join(', ');
+    query = '{key: {equals: "'+key+'"}, value: {or: ['+valuesString+']}}'
+  }    
+  console.log(query);
+  return gql`
+    query GetPropertyIds($key: String!) {
+      properties(
+        distinctOn: "value",
+        limit: 1000,
+        where: ${query}
+      ) {
+        id
+      }
+    }
+  `;
+};
+
+/**
+ * Get query for fetching entity IDs based on property IDs
+ * @param propertyIds The property IDs to filter by
+ */
+ export const getEntityIdsQuery = (propertyIds: string[]) => {
+  let query = '';
+  propertyIds.forEach((propertyId) => {
+    if (query.length > 0) {
+      query += ', '
+    }
+    query += '{equals: "'+propertyId+'"}'
+  });
+
+  if (propertyIds.length === 1) {
+    query = '{property_id: '+query+'}'
+  } else{
+    query = '{property_id: {or: ['+query+']}}'
+  }
+
+  console.log(query);
+  return gql`
+    query GetEntityIds($propertyIds: [String!]!) {
+      subject_properties(
+        where: ${query}
+      ) {
+        subject_entity_id
+      }
+      resource_properties(
+        where: ${query}
+      ) {
+        resource_entity_id
+      }
+      attribute_properties(
+        where: ${query}
+      ) {
+        attribute_entity_id
+      }
+    }
+  `;
+};
